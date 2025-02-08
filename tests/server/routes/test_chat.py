@@ -105,7 +105,7 @@ async def test_chat_success(client, agent):
         patch('swarmzero.server.routes.chat.ChatManager.generate_response', return_value='chat response'),
         patch('swarmzero.server.routes.chat.insert_files_to_index', return_value=['test.txt']),
         patch('swarmzero.server.routes.chat.inject_additional_attributes', new=lambda fn, attributes=None: fn()),
-    ):
+   ):
 
         payload = {
             'user_id': 'user1',
