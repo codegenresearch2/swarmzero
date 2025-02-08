@@ -126,8 +126,8 @@ class Swarm:
         chat_manager = ChatManager(self.__swarm, user_id=user_id, session_id=session_id)
         last_message = ChatMessage(role=MessageRole.USER, content=prompt)
 
-        if files:
-            await self.insert_files_to_index(files)
+        if files and len(files) > 0:
+            stored_files = await self.insert_files_to_index(files)
 
         response = await inject_additional_attributes(
             lambda: chat_manager.generate_response(db_manager, last_message),
@@ -158,7 +158,10 @@ class Swarm:
             await self.sdk_context.load_default_utility()
             self.__utilities_loaded = True
 
-    async def insert_files_to_index(self, files: List[UploadFile]):
+    async def insert_files_to_index(self, files: List[UploadFile]) -> List[str]:
         # Implement the logic to insert files to index
+        stored_files = []
         for file in files:
-            await insert_files_to_index(self.id, file, self.sdk_context)
+            file_path = await insert_files_to_index(self.id, file, self.sdk_context)
+            stored_files.append(file_path)
+        return stored_files
