@@ -31,6 +31,11 @@ ALLOWED_FILE_TYPES = [
 
 file_store = FileStore(BASE_DIR)
 index_store = IndexStore.get_instance()
+USE_S3 = os.getenv('USE_S3', 'false').lower() == 'true'
+
+PINECONE_API_KEY = os.getenv('PINECONE_API_KEY')
+if not PINECONE_API_KEY:
+    raise ValueError('PINECONE_API_KEY environment variable is not set.')
 
 async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: SDKContext) -> List[str]:
     saved_files = []
@@ -48,13 +53,13 @@ async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: S
         try:
             agent = sdk_context.get_resource(id)
             filename = await file_store.save_file(file)
-            if os.getenv('USE_S3', 'false').lower() == 'true':
+            if USE_S3:
                 file_path = filename
             else:
                 file_path = '{BASE_DIR}/{filename}'.format(BASE_DIR=BASE_DIR, filename=filename)
             saved_files.append(file_path)
 
-            if os.getenv('USE_S3', 'false').lower() == 'true':
+            if USE_S3:
                 continue  # TODO: update retrivers to use S3
 
             if 'BaseRetriever' in index_store.list_indexes():
