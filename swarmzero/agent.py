@@ -1,22 +1,27 @@
 import os
 import logging
-from typing import List, Optional
+from typing import List, Optional, Callable
 
-# This is the revised code snippet that addresses the feedback received.
-
-# Organize imports logically
+# Local application imports
+from swarmzero.llms.openai import OpenAILLM
+from swarmzero.llms.claude import ClaudeLLM
+from swarmzero.llms.mistral import MistralLLM
+from swarmzero.llms.ollama import OllamaLLM
 
 # Standard library imports
 
 # Third-party imports
 
-# Local application imports
 
 class Agent:
-    def __init__(self, name: str, functions: List, llm: Optional[str] = None):
+    def __init__(self, name: str, functions: List[Callable], llm: Optional[str] = None):
         self.name = name
         self.functions = functions
         self.llm = llm
+        self.configure_logging()
+
+    def configure_logging(self):
+        logging.basicConfig(level=logging.INFO)
 
     def add_tool(self, function_tool):
         self.functions.append(function_tool)
@@ -25,7 +30,16 @@ class Agent:
         self.functions.remove(function_tool)
 
     def configure_llm(self, llm: str):
-        self.llm = llm
+        if llm == 'openai':
+            self.llm = OpenAILLM()
+        elif llm == 'claude':
+            self.llm = ClaudeLLM()
+        elif llm == 'mistral':
+            self.llm = MistralLLM()
+        elif llm == 'ollama':
+            self.llm = OllamaLLM()
+        else:
+            raise ValueError('Unsupported LLM')
 
     def get_tools(self):
         return self.functions
@@ -38,7 +52,6 @@ class Agent:
 
 # Example usage
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
-    agent = Agent('MyAgent', ['tool1', 'tool2'])
+    agent = Agent('MyAgent', ['tool1', 'tool2'], llm='openai')
     logging.info(agent.get_tools())
     agent.execute_function('tool1')
