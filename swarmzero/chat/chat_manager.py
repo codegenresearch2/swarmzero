@@ -1,6 +1,7 @@
 import os
 from datetime import datetime, timezone
 from typing import Any, List, Optional
+from pathlib import Path
 
 from llama_index.core.agent.runner.base import AgentRunner
 from llama_index.core.llms import ChatMessage, MessageRole
@@ -12,14 +13,13 @@ from swarmzero.filestore import BASE_DIR, FileStore
 
 file_store = FileStore(BASE_DIR)
 
-
 class ChatManager:
 
     def __init__(self, llm: AgentRunner, user_id: str, session_id: str, enable_multi_modal: bool = False):
         self.llm = llm
         self.user_id = user_id
         self.session_id = session_id
-        self.chat_store_key = f"{user_id}_{session_id}"
+        self.chat_store_key = f"{user_id}_{session_id}
         self.enable_multi_modal = enable_multi_modal
 
     async def add_message(self, db_manager: DatabaseManager, role: str, content: Any | None):
@@ -108,7 +108,10 @@ class ChatManager:
         try:
             self.llm.memory = ChatMemoryBuffer.from_defaults(chat_history=chat_history)
             task = self.llm.create_task(str(last_message.content), extra_state={"image_docs": image_documents})
-            return await self._execute_task(task.task_id)
+            while True:
+                response = await self.llm._arun_step(task.task_id)
+                if response.is_last:
+                    return str(self.llm.finalize_response(task.task_id))
         except Exception as e:
             raise Exception(f"Failed to handle OpenAI multimodal: {str(e)}")
 
@@ -119,11 +122,3 @@ class ChatManager:
             return response_text
         except Exception as e:
             raise Exception(f"Failed to handle OpenAI agent: {str(e)}")
-
-    async def _execute_task(self, task_id: str) -> str:
-        try:
-            response = await self.llm._arun_step(task_id)
-            if response.is_last:
-                return str(self.llm.finalize_response(task_id))
-        except Exception as e:
-            return f"error during step execution: {str(e)}"
