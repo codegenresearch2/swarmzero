@@ -16,6 +16,7 @@ from swarmzero.llms.llm import LLM
 from swarmzero.llms.utils import llm_from_config_without_agent, llm_from_wrapper
 from swarmzero.sdk_context import SDKContext
 from swarmzero.utils import tools_from_funcs
+from swarmzero.server.routes.files import insert_files_to_index
 
 load_dotenv()
 
@@ -118,7 +119,7 @@ class Swarm:
                    prompt: str,
                    user_id='default_user',
                    session_id='default_chat',
-                   files: Optional[List[UploadFile]] = None):
+                   files: List[UploadFile] = []):
         await self._ensure_utilities_loaded()
         db_manager = self.sdk_context.get_utility('db_manager')
 
@@ -159,4 +160,5 @@ class Swarm:
 
     async def insert_files_to_index(self, files: List[UploadFile]):
         # Implement the logic to insert files to index
-        pass
+        for file in files:
+            await insert_files_to_index(self.id, file, self.sdk_context)
