@@ -49,23 +49,6 @@ def get_llm_instance(id, sdk_context: SDKContext):
 
 
 def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
-    async def validate_chat_data(chat_data):
-        if len(chat_data.messages) == 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail='No messages provided',
-            )
-        last_message = chat_data.messages.pop()
-        if last_message.role != MessageRole.USER:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail='Last message must be from user',
-            )
-        return last_message, [ChatMessage(role=m.role, content=m.content) for m in chat_data.messages]
-
-    def is_valid_image(file_path: str) -> bool:
-        return Path(file_path).suffix.lower() in ALLOWED_IMAGE_EXTENSIONS
-
     @router.post('/chat') async def chat(
         request: Request,
         user_id: str = Form(...),
@@ -82,7 +65,7 @@ def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
                 detail=f'Chat data is malformed: {e.json()}',
             )
 
-        stored_files = await insert_files_to_index(files, id, sdk_context)
+        stored_files = await insert_files_to_index(files, id, sdk_context) if files else []
         llm_instance, enable_multi_modal = get_llm_instance(id, sdk_context)
 
         chat_manager = ChatManager(
@@ -90,12 +73,15 @@ def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
         )
         db_manager = DatabaseManager(db)
 
-        last_message, _ = await validate_chat_data(chat_data_parsed)
-
-        image_files = [file for file in stored_files if is_valid_image(file)]
+        last_message = chat_data_parsed.messages.pop()
+        if last_message.role != MessageRole.USER:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail='Last message must be from user',
+            )
 
         response = await inject_additional_attributes(
-            lambda: chat_manager.generate_response(db_manager, last_message, image_files),
+            lambda: chat_manager.generate_response(db_manager, last_message, stored_files),
             {'user_id': user_id}
         )
         return response
