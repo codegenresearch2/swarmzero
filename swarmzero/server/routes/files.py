@@ -8,14 +8,12 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from swarmzero.filestore import BASE_DIR, FileStore
 from swarmzero.sdk_context import SDKContext
 from swarmzero.tools.retriever.base_retrieve import IndexStore, RetrieverBase
-from swarmzero.tools.retriever.pinecone_retrieve import PineconeRetriever
 
 load_dotenv()
 
 # TODO: get log level from config
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 
 ALLOWED_FILE_TYPES = [
     "application/json",
@@ -34,7 +32,6 @@ file_store = FileStore(BASE_DIR)
 
 index_store = IndexStore.get_instance()
 USE_S3 = os.getenv("USE_S3", "false").lower() == "true"
-
 
 async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: SDKContext):
     saved_files = []
@@ -59,13 +56,7 @@ async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: S
             saved_files.append(file_path)
 
             if USE_S3:
-                retriever = PineconeRetriever()
-                index, file_names = retriever.create_serverless_index([file_path])
-                index_store.add_index(retriever.name, index, file_names)
-                logger.info("Inserting data to new basic index")
-                logger.info(f"Index: {index_store.list_indexes()}")
-                agent.recreate_agent()
-                index_store.save_to_file()
+                continue  # TODO: update retrivers to use S3
 
             if "BaseRetriever" in index_store.list_indexes():
                 index = index_store.get_index("BaseRetriever")
