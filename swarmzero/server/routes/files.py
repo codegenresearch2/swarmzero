@@ -33,11 +33,15 @@ file_store = FileStore(BASE_DIR)
 index_store = IndexStore.get_instance()
 USE_S3 = os.getenv('USE_S3', 'false').lower() == 'true'
 
+PINECONE_API_KEY = os.getenv('PINECONE_API_KEY')
+if not PINECONE_API_KEY:
+    raise ValueError('PINECONE_API_KEY environment variable is not set.')
+
 async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: SDKContext) -> List[str]:
     saved_files = []
     for file in files:
         if not file.content_type:
-            logger.warning(f'File {{file.filename}} has no content type.')
+            logger.warning('File {file.filename} has no content type.')
             raise HTTPException(status_code=400, detail='File content type is missing.')
 
         if file.content_type not in ALLOWED_FILE_TYPES:
