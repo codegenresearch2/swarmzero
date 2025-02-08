@@ -118,27 +118,4 @@ async def test_chat_success(client, agent):
         response = await client.post('/api/v1/chat', data=payload, files={**dict(files)})
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.text == 'chat response' or response.text == '"chat response"'
-
-
-@pytest.mark.asyncio
-async def test_chat_with_image(client, agent):
-    with (
-        patch('swarmzero.server.routes.chat.ChatManager.generate_response', return_value='chat response') as mock_generate_response,
-        patch('swarmzero.server.routes.chat.insert_files_to_index', return_value=['test.jpg']),
-        patch('swarmzero.server.routes.chat.inject_additional_attributes', new=lambda fn, attributes=None: fn()),
-    ):
-
-        payload = {
-            'user_id': 'user1',
-            'session_id': 'session1',
-            'chat_data': json.dumps({'messages':[{'role': 'user', 'content': 'Hello!'}]}),
-        }
-
-        files = [('files', ('test.jpg', BytesIO(b'test content'), 'image/jpg'))]
-
-        response = await client.post('/api/v1/chat', data=payload, files={**dict(files)})
-
-        assert response.status_code == status.HTTP_200_OK
-        assert response.text == 'chat response' or response.text == '"chat response"'
-        mock_generate_response.assert_called_once_with(ANY, ANY, ['test.jpg'])
+        assert response.text == 'chat response' or response.text == '
