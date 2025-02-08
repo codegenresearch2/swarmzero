@@ -15,7 +15,7 @@ file_store = FileStore(BASE_DIR)
 
 class ChatManager:
 
-    ALLOWED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp'}
+    ALLOWED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp'};
 
     def __init__(self, llm: AgentRunner, user_id: str, session_id: str, enable_multi_modal: bool = False):
         self.llm = llm
@@ -46,7 +46,7 @@ class ChatManager:
         )
 
     async def get_messages(self, db_manager: DatabaseManager):
-        filters = {'user_id': [self.user_id], 'session_id': [self.session_id]}
+        filters = {'user_id': [self.user_id], 'session_id': [self.session_id]};
         if 'AGENT_ID' in os.environ:
             filters['agent_id'] = os.getenv('AGENT_ID', '')
         if 'SWARM_ID' in os.environ:
@@ -57,7 +57,7 @@ class ChatManager:
         return chat_history
 
     async def get_all_chats_for_user(self, db_manager: DatabaseManager):
-        filters = {'user_id': [self.user_id]}
+        filters = {'user_id': [self.user_id]};
         if 'AGENT_ID' in os.environ:
             filters['agent_id'] = os.getenv('AGENT_ID', '')
         if 'SWARM_ID' in os.environ:
@@ -85,9 +85,9 @@ class ChatManager:
             await self.add_message(db_manager, last_message.role.value, last_message.content)
 
         if self.enable_multi_modal:
-            image_documents = ([ImageDocument(image=file_store.get_file(image_path)) for image_path in files] if files is not None and len(files) > 0 else [])
             if not all(self.is_valid_image(image_path) for image_path in files):
                 raise ValueError('Invalid image file(s) provided.')
+            image_documents = [ImageDocument(image=file_store.get_file(image_path)) for image_path in files]
             assistant_message = await self._handle_openai_multimodal(last_message, await self.get_messages(db_manager), image_documents)
         else:
             assistant_message = await self._handle_openai_agent(last_message, await self.get_messages(db_manager))
@@ -101,8 +101,10 @@ class ChatManager:
         try:
             self.llm.memory = ChatMemoryBuffer.from_defaults(chat_history=chat_history)
             task = self.llm.create_task(str(last_message.content), extra_state={'image_docs': image_documents})
-            response = await self.llm._arun_step(task.task_id)
-            return str(self.llm.finalize_response(task.task_id))
+            while True:
+                response = await self.llm._arun_step(task.task_id)
+                if response.is_last:
+                    return str(self.llm.finalize_response(task.task_id))
         except Exception as e:
             raise Exception(f'Failed to handle OpenAI multimodal: {str(e)}')
 
