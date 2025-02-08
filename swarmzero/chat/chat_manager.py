@@ -28,95 +28,81 @@ class ChatManager:
         return Path(file_path).suffix.lower() in self.ALLOWED_IMAGE_EXTENSIONS
 
     async def add_message(self, db_manager: DatabaseManager, role: str, content: Any | None):
-        try:
-            data = {
-                'user_id': self.user_id,
-                'session_id': self.session_id,
-                'message': content,
-                'role': role,
-                'timestamp': datetime.now(timezone.utc).isoformat(),
-            }
-            if 'AGENT_ID' in os.environ:
-                data['agent_id'] = os.getenv('AGENT_ID', '')
-            if 'SWARM_ID' in os.environ:
-                data['swarm_id'] = os.getenv('SWARM_ID', '')
+        data = {
+            'user_id': self.user_id,
+            'session_id': self.session_id,
+            'message': content,
+            'role': role,
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+        }
+        if 'AGENT_ID' in os.environ:
+            data['agent_id'] = os.getenv('AGENT_ID', '')
+        if 'SWARM_ID' in os.environ:
+            data['swarm_id'] = os.getenv('SWARM_ID', '')
 
-            await db_manager.insert_data(
-                table_name='chats',
-                data=data,
-            )
-        except Exception as e:
-            raise Exception(f'Failed to add message: {str(e)}')
+        await db_manager.insert_data(
+            table_name='chats',
+            data=data,
+        )
 
     async def get_messages(self, db_manager: DatabaseManager):
-        try:
-            filters = {'user_id': [self.user_id], 'session_id': [self.session_id]}
-            if 'AGENT_ID' in os.environ:
-                filters['agent_id'] = os.getenv('AGENT_ID', '')
-            if 'SWARM_ID' in os.environ:
-                filters['swarm_id'] = os.getenv('SWARM_ID', '')
+        filters = {'user_id': [self.user_id], 'session_id': [self.session_id]}
+        if 'AGENT_ID' in os.environ:
+            filters['agent_id'] = os.getenv('AGENT_ID', '')
+        if 'SWARM_ID' in os.environ:
+            filters['swarm_id'] = os.getenv('SWARM_ID', '')
 
-            db_chat_history = await db_manager.read_data('chats', filters)
-            chat_history = [ChatMessage(role=chat['role'], content=chat['message']) for chat in db_chat_history]
-            return chat_history
-        except Exception as e:
-            raise Exception(f'Failed to get messages: {str(e)}')
+        db_chat_history = await db_manager.read_data('chats', filters)
+        chat_history = [ChatMessage(role=chat['role'], content=chat['message']) for chat in db_chat_history]
+        return chat_history
 
     async def get_all_chats_for_user(self, db_manager: DatabaseManager):
-        try:
-            filters = {'user_id': [self.user_id]}
-            if 'AGENT_ID' in os.environ:
-                filters['agent_id'] = os.getenv('AGENT_ID', '')
-            if 'SWARM_ID' in os.environ:
-                filters['swarm_id'] = os.getenv('SWARM_ID', '')
+        filters = {'user_id': [self.user_id]}
+        if 'AGENT_ID' in os.environ:
+            filters['agent_id'] = os.getenv('AGENT_ID', '')
+        if 'SWARM_ID' in os.environ:
+            filters['swarm_id'] = os.getenv('SWARM_ID', '')
 
-            db_chat_history = await db_manager.read_data('chats', filters)
+        db_chat_history = await db_manager.read_data('chats', filters)
 
-            chats_by_session: dict[str, list] = {}
-            for chat in db_chat_history:
-                session_id = chat['session_id']
-                if session_id not in chats_by_session:
-                    chats_by_session[session_id] = []
-                chats_by_session[session_id].append(
-                    {
-                        'message': chat['message'],
-                        'role': chat['role'],
-                        'timestamp': chat['timestamp'],
-                    }
-                )
+        chats_by_session: dict[str, list] = {}
+        for chat in db_chat_history:
+            session_id = chat['session_id']
+            if session_id not in chats_by_session:
+                chats_by_session[session_id] = []
+            chats_by_session[session_id].append(
+                {
+                    'message': chat['message'],
+                    'role': chat['role'],
+                    'timestamp': chat['timestamp'],
+                }
+            )
 
-            return chats_by_session
-        except Exception as e:
-            raise Exception(f'Failed to get all chats for user: {str(e)}')
+        return chats_by_session
 
     async def generate_response(self, db_manager: Optional[DatabaseManager], last_message: ChatMessage, files: Optional[List[str]] = []):
-        try:
-            chat_history = []
-            if db_manager is not None:
-                chat_history = await self.get_messages(db_manager)
-                await self.add_message(db_manager, last_message.role.value, last_message.content)
+        if db_manager is not None:
+            await self.add_message(db_manager, last_message.role.value, last_message.content)
 
-            if self.enable_multi_modal:
-                image_documents = ([ImageDocument(image=file_store.get_file(image_path)) for image_path in files] if files is not None and len(files) > 0 else [])
-                assistant_message = await self._handle_openai_multimodal(last_message, chat_history, image_documents)
-            else:
-                assistant_message = await self._handle_openai_agent(last_message, chat_history)
+        if self.enable_multi_modal:
+            image_documents = ([ImageDocument(image=file_store.get_file(image_path)) for image_path in files] if files is not None and len(files) > 0 else [])
+            if not all(self.is_valid_image(image_path) for image_path in files):
+                raise ValueError('Invalid image file(s) provided.')
+            assistant_message = await self._handle_openai_multimodal(last_message, await self.get_messages(db_manager), image_documents)
+        else:
+            assistant_message = await self._handle_openai_agent(last_message, await self.get_messages(db_manager))
 
-            if db_manager is not None:
-                await self.add_message(db_manager, MessageRole.ASSISTANT, assistant_message)
+        if db_manager is not None:
+            await self.add_message(db_manager, MessageRole.ASSISTANT, assistant_message)
 
-            return assistant_message
-        except Exception as e:
-            raise Exception(f'Failed to generate response: {str(e)}')
+        return assistant_message
 
     async def _handle_openai_multimodal(self, last_message: ChatMessage, chat_history: List[ChatMessage], image_documents: List[ImageDocument]) -> str:
         try:
             self.llm.memory = ChatMemoryBuffer.from_defaults(chat_history=chat_history)
             task = self.llm.create_task(str(last_message.content), extra_state={'image_docs': image_documents})
-            while True:
-                response = await self.llm._arun_step(task.task_id)
-                if response.is_last:
-                    return str(self.llm.finalize_response(task.task_id))
+            response = await self.llm._arun_step(task.task_id)
+            return str(self.llm.finalize_response(task.task_id))
         except Exception as e:
             raise Exception(f'Failed to handle OpenAI multimodal: {str(e)}')
 
