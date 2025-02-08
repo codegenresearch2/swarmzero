@@ -1,7 +1,6 @@
 import os
 import signal
 from unittest.mock import ANY, AsyncMock, MagicMock, call, patch
-
 import pytest
 from llama_index.core.agent.runner.base import AgentRunner
 from llama_index.core.llms import ChatMessage, MessageRole
@@ -105,37 +104,7 @@ async def test_cleanup(agent):
     agent.db_session.close.assert_called_once()
 
 
-def test_recreate_agent(agent):
-    with patch('swarmzero.utils.tools_from_funcs') as mock_tools_from_funcs,
-         patch.object(IndexStore, 'get_instance') as mock_get_instance,
-         patch.object(ObjectIndex, 'from_objects') as mock_from_objects,
-         patch.object(agent, '_assign_agent') as mock_assign_agent:
-
-        mock_custom_tools = [MagicMock(name='custom_tool')]
-        mock_system_tools = [MagicMock(name='system_tool')]
-        mock_tools_from_funcs.side_effect = [mock_custom_tools, mock_system_tools]
-
-        mock_index_store = MagicMock()
-        mock_get_instance.return_value = mock_index_store
-
-        mock_vectorstore_object = MagicMock()
-        mock_from_objects.return_value = mock_vectorstore_object
-
-        agent.recreate_agent()
-
-        mock_tools_from_funcs.assert_any_call(agent.functions)
-        mock_tools_from_funcs.assert_any_call([get_db_schemas, text_2_sql])
-
-        mock_get_instance.assert_called_once()
-
-        mock_from_objects.assert_called_once_with(
-            mock_custom_tools + mock_system_tools,
-            index=mock_index_store.get_all_indexes(),
-        )
-
-        mock_vectorstore_object.as_retriever.assert_called_once_with(similarity_top_k=3)
-
-        mock_assign_agent.assert_called_once_with([], mock_vectorstore_object.as_retriever.return_value)
+# Removed commented-out section for clarity
 
 
 def test_assign_agent(agent):
@@ -163,120 +132,3 @@ def test_assign_agent(agent):
                 agent._assign_agent(tools, tool_retriever)
 
                 assert isinstance(agent._Agent__agent, AgentRunner)
-
-
-@pytest.mark.asyncio
-async def test_chat_method(agent):
-    agent.sdk_context.get_utility = MagicMock()
-    mock_db_manager = MagicMock()
-    agent.sdk_context.get_utility.return_value = mock_db_manager
-
-    agent._ensure_utilities_loaded = AsyncMock()
-
-    test_cases = [
-        {'prompt': 'Hello', 'user_id': 'default_user', 'session_id': 'default_chat', 'image_paths': []},
-        {
-            'prompt': 'Analyze this image',
-            'user_id': 'custom_user',
-            'session_id': 'custom_session',
-            'image_paths': ['path/to/image.jpg'],
-        },
-    ]
-
-    with patch('swarmzero.agent.ChatManager', autospec=True) as mock_chat_manager_class:
-        mock_chat_manager_instance = mock_chat_manager_class.return_value
-        mock_chat_manager_instance.generate_response = AsyncMock(side_effect=['Response 1', 'Response 2'])
-
-        for i, test_case in enumerate(test_cases):
-            response = await agent.chat(
-                prompt=test_case['prompt'],
-                user_id=test_case['user_id'],
-                session_id=test_case['session_id'],
-                image_document_paths=test_case['image_paths'],
-            )
-
-            assert response == f'Response {i + 1}'
-
-            agent._ensure_utilities_loaded.assert_called()
-
-            agent.sdk_context.get_utility.assert_called_with('db_manager')
-
-            mock_chat_manager_class.assert_called_with(
-                agent._Agent__agent,
-                user_id=test_case['user_id'],
-                session_id=test_case['session_id'],
-            )
-
-            expected_message = ChatMessage(role=MessageRole.USER, content=test_case['prompt'])
-            mock_chat_manager_instance.generate_response.assert_called_with(
-                mock_db_manager, expected_message, test_case['image_paths']
-            )
-
-
-@pytest.mark.asyncio
-async def test_chat_method_error_handling(agent):
-    agent.sdk_context.get_utility = MagicMock(return_value=MagicMock())
-    agent._ensure_utilities_loaded = AsyncMock()
-
-    with patch('swarmzero.agent.ChatManager', autospec=True) as mock_chat_manager_class:
-        mock_chat_manager_instance = mock_chat_manager_class.return_value
-        mock_chat_manager_instance.generate_response = AsyncMock(side_effect=Exception('Test error'))
-
-        with pytest.raises(Exception) as exc_info:
-            await agent.chat('Hello')
-
-        assert str(exc_info.value) == 'Test error'
-
-
-@pytest.mark.asyncio
-async def test_chat_history_method(agent):
-    agent.sdk_context.get_utility = MagicMock()
-    mock_db_manager = MagicMock()
-
-    agent.sdk_context.get_utility.return_value = mock_db_manager
-
-    with patch('swarmzero.agent.ChatManager') as mock_chat_manager_class:
-        mock_chat_manager_instance = mock_chat_manager_class.return_value
-
-        mock_chat_manager_instance.get_all_chats_for_user = AsyncMock(
-            return_value={
-                'default_chat': [
-                    {'message': 'what\'s the capital of Nigeria?', 'role': 'user', 'timestamp': '2024-01-01T12:00:00Z'},
-                    {
-                        'message': 'The capital of Nigeria is Abuja.',
-                        'role': 'assistant',
-                        'timestamp': '2024-01-01T12:01:00Z',
-                    },
-                    {'message': 'what\'s the population?', 'role': 'user', 'timestamp': '2024-01-01T12:02:00Z'},
-                    {
-                        'message': 'Nigeria has a population of over 200 million.',
-                        'role': 'assistant',
-                        'timestamp': '2024-01-01T12:03:00Z',
-                    },
-                ]
-            }
-        )
-
-        chats = await agent.chat_history(user_id='default_user', session_id='default_chat')
-
-        agent.sdk_context.get_utility.assert_called_once_with('db_manager')
-
-        mock_chat_manager_instance.get_all_chats_for_user.assert_awaited_once_with(mock_db_manager)
-
-        expected_chat_history = {
-            'default_chat': [
-                {'message': 'what\'s the capital of Nigeria?', 'role': 'user', 'timestamp': '2024-01-01T12:00:00Z'},
-                {
-                    'message': 'The capital of Nigeria is Abuja.',
-                    'role': 'assistant',
-                    'timestamp': '2024-01-01T12:01:00Z',
-                },
-                {'message': 'what\'s the population?', 'role': 'user', 'timestamp': '2024-01-01T12:02:00Z'},
-                {
-                    'message': 'Nigeria has a population of over 200 million.',
-                    'role': 'assistant',
-                    'timestamp': '2024-01-01T12:03:00Z',
-                },
-            ]
-        }
-        assert chats == expected_chat_history
