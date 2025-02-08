@@ -125,7 +125,7 @@ async def test_chat_success(client, agent):
 async def test_chat_with_image(client, agent):
     with (
         patch('swarmzero.server.routes.chat.ChatManager.generate_response', return_value='chat response') as mock_generate_response,
-        patch('swarmzero.server.routes.chat.insert_files_to_index', return_value=['test.txt', 'test.jpg']),
+        patch('swarmzero.server.routes.chat.insert_files_to_index', return_value=['test.jpg']),
         patch('swarmzero.server.routes.chat.inject_additional_attributes', new=lambda fn, attributes=None: fn()),
     ):
 
@@ -135,10 +135,7 @@ async def test_chat_with_image(client, agent):
             'chat_data': json.dumps({'messages':[{'role': 'user', 'content': 'Hello!'}]}),
         }
 
-        files = [
-            ('files', ('test.txt', BytesIO(b'test content'), 'text/plain')),
-            ('files', ('test.jpg', BytesIO(b'test content'), 'image/jpg')),
-        ]
+        files = [('files', ('test.jpg', BytesIO(b'test content'), 'image/jpg'))]
 
         response = await client.post('/api/v1/chat', data=payload, files={**dict(files)})
 
