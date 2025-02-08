@@ -1,5 +1,8 @@
 import os
 import logging
+import asyncio
+import signal
+import uuid
 from typing import List, Optional, Callable
 
 # Local application imports
@@ -13,6 +16,15 @@ from swarmzero.llms.ollama import OllamaLLM
 # Third-party imports
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+
+# Define ToolInstallRequest class
+class ToolInstallRequest:
+    def __init__(self, env_vars=None, github_url=None, functions=None, install_path=None, github_token=None):
+        self.env_vars = env_vars
+        self.github_url = github_url
+        self.functions = functions
+        self.install_path = install_path
+        self.github_token = github_token
 
 class Agent:
     def __init__(self, name: str, functions: List[Callable], llm: Optional[str] = None):
@@ -105,9 +117,3 @@ class Agent:
                 func = getattr(module, func_name)
                 self.functions.append(func)
                 print(f'Installed function: {func_name} from {module_name}')
-
-# Example usage
-if __name__ == '__main__':
-    agent = Agent('MyAgent', ['tool1', 'tool2'], llm='openai')
-    logging.info(agent.get_tools())
-    agent.execute_function('tool1')
