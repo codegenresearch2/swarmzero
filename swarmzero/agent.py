@@ -27,16 +27,60 @@ class ToolInstallRequest:
         self.github_token = github_token
 
 class Agent:
-    def __init__(self, name: str, functions: List[Callable], llm: Optional[str] = None):
+    def __init__(self,
+                 name: str,
+                 functions: List[Callable],
+                 llm: Optional[str] = None,
+                 config_path: str = './swarmzero_config_example.toml',
+                 host: str = '0.0.0.0',
+                 port: int = 8000,
+                 instruction: str = '',
+                 role: str = '',
+                 description: str = '',
+                 agent_id: str = os.getenv('AGENT_ID', ''),
+                 retrieve: bool = False,
+                 required_exts=None,
+                 retrieval_tool: str = 'basic',
+                 index_name: Optional[str] = None,
+                 load_index_file: bool = False,
+                 swarm_mode: bool = False,
+                 chat_only_mode: bool = False,
+                 sdk_context=None,
+                 max_iterations: Optional[int] = 10):
+        self.id = agent_id if agent_id != '' else str(uuid.uuid4())
         self.name = name
         self.functions = functions
-        self.llm = llm
-        self.configure_logging()
+        self.config_path = config_path
+        self.__host = host
+        self.__port = port
         self.__app = FastAPI()
+        self.shutdown_event = asyncio.Event()
+        self.instruction = instruction
+        self.role = role
+        self.description = description
+        self.sdk_context = sdk_context if sdk_context is not None else SDKContext(config_path=config_path)
+        self.__config = self.sdk_context.get_config(self.name)
+        self.__llm = llm if llm is not None else None
+        self.max_iterations = max_iterations
+        self.__optional_dependencies: dict[str, bool] = {}
+        self.__swarm_mode = swarm_mode
+        self.__chat_only_mode = chat_only_mode
+        self.retrieve = retrieve
+        self.required_exts = required_exts if required_exts is not None else []
+        self.retrieval_tool = retrieval_tool
+        self.index_name = index_name
+        self.load_index_file = load_index_file
+        self.configure_logging()
         self.setup_routes()
 
+        self.sdk_context.add_resource(self, resource_type='agent')
+        [self.sdk_context.add_resource(func, resource_type='tool') for func in self.functions]
+
+        self.__utilities_loaded = False
+
     def configure_logging(self):
-        logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(stream=sys.stdout, level=self.__config.get('log'))
+        logging.getLogger().addHandler(logging.StreamHandler(stream=sys.stdout))
 
     def add_tool(self, function_tool):
         self.functions.append(function_tool)
@@ -46,13 +90,13 @@ class Agent:
 
     def configure_llm(self, llm: str):
         if llm == 'openai':
-            self.llm = OpenAILLM()
+            self.__llm = OpenAILLM()
         elif llm == 'claude':
-            self.llm = ClaudeLLM()
+            self.__llm = ClaudeLLM()
         elif llm == 'mistral':
-            self.llm = MistralLLM()
+            self.__llm = MistralLLM()
         elif llm == 'ollama':
-            self.llm = OllamaLLM()
+            self.__llm = OllamaLLM()
         else:
             raise ValueError('Unsupported LLM')
 
@@ -117,3 +161,25 @@ class Agent:
                 func = getattr(module, func_name)
                 self.functions.append(func)
                 print(f'Installed function: {func_name} from {module_name}')
+
+        self.recreate_agent()
+
+    def recreate_agent(self):
+        return self.init_agent()
+
+    def init_agent(self):
+        tools = self.get_tools()
+        tool_retriever = None
+
+        if self.load_index_file or self.retrieve or len(self.index_store.list_indexes()) > 0:
+            index_store = IndexStore.get_instance()
+            query_engine_tools = []
+            for index_name in index_store.get_all_index_names():
+                index_files = index_store.get_index_files(index_name)
+                query_engine_tools.append(
+                    QueryEngineTool(
+                        query_engine=index_store.get_index(index_name).as_query_engine(),
+                        metadata=ToolMetadata(
+                            name=index_name + '_tool',
+                            description=(
+                                'Useful for questions related to specific aspects of ' 'documents' f
