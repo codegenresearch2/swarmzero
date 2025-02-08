@@ -41,10 +41,10 @@ async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: S
             raise HTTPException(status_code=400, detail='File content type is missing.')
 
         if file.content_type not in ALLOWED_FILE_TYPES:
-            logger.warning(f'Disallowed file type upload attempted: {{file.content_type}')
+            logger.warning(f'Disallowed file type upload attempted: {{file.content_type}}')
             raise HTTPException(
                 status_code=400,
-                detail=f'File type {{file.content_type}} is not allowed,',
+                detail=f'File type {{file.content_type}} is not allowed',
             )
         try:
             agent = sdk_context.get_resource(id)
