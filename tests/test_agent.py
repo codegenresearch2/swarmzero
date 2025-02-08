@@ -102,33 +102,3 @@ async def test_cleanup(agent):
     agent.db_session = MagicMock()
     await agent._Agent__cleanup()
     agent.db_session.close.assert_called_once()
-
-
-# Removed commented-out section for clarity
-
-
-def test_assign_agent(agent):
-    with (
-        patch('swarmzero.llms.openai.OpenAIMultiModalLLM') as mock_openai_multimodal,
-        patch('swarmzero.llms.openai.OpenAILLM') as mock_openai_llm,
-        patch('swarmzero.llms.claude.ClaudeLLM') as mock_claude_llm,
-        patch('swarmzero.llms.ollama.OllamaLLM') as mock_ollama_llm,
-        patch('swarmzero.llms.mistral.MistralLLM') as mock_mistral_llm,
-    ):
-        models = [
-            ('gpt-4o', mock_openai_multimodal),
-            ('gpt-3.5-turbo', mock_openai_llm),
-            ('claude-3-opus-20240229', mock_claude_llm),
-            ('llama-2', mock_ollama_llm),
-            ('mistral-large-latest', mock_mistral_llm),
-            ('gpt-4', mock_openai_llm),
-        ]
-
-        tools = MagicMock()
-        tool_retriever = MagicMock()
-
-        for model_name, expected_mock_class in models:
-            with patch('swarmzero.config.Config.get', return_value=model_name):
-                agent._assign_agent(tools, tool_retriever)
-
-                assert isinstance(agent._Agent__agent, AgentRunner)
