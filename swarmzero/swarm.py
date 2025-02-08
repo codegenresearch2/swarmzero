@@ -119,7 +119,7 @@ class Swarm:
                    prompt: str,
                    user_id='default_user',
                    session_id='default_chat',
-                   files: List[UploadFile] = []):
+                   files: List[UploadFile] = None):
         await self._ensure_utilities_loaded()
         db_manager = self.sdk_context.get_utility('db_manager')
 
