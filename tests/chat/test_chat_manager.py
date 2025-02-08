@@ -20,6 +20,9 @@ class MockAgent:
 
 
 class MockMultiModalAgent:
+    def __init__(self):
+        self.data = []
+
     def create_task(self, content, extra_state=None):
         return type('MockTask', (), {'task_id': '12345'})
 
@@ -116,7 +119,6 @@ async def test_generate_response_with_openai_multimodal(multi_modal_agent, db_ma
         files = ['image1.png', 'image2.png']
 
         response = await chat_manager.generate_response(db_manager, user_message, files)
-
         assert response == 'multimodal response'
 
         messages = await chat_manager.get_messages(db_manager)
@@ -130,7 +132,6 @@ async def test_execute_task_success(multi_modal_agent):
     chat_manager = ChatManager(multi_modal_agent, user_id='123', session_id='abc')
 
     result = await chat_manager._execute_task('task_id_123')
-
     assert result == 'multimodal response'
     multi_modal_agent._arun_step.assert_called_once_with('task_id_123')
     multi_modal_agent.finalize_response.assert_called_once_with('task_id_123')
@@ -146,7 +147,6 @@ async def test_execute_task_with_exception(multi_modal_agent):
     chat_manager = ChatManager(multi_modal_agent, user_id='123', session_id='abc')
 
     result = await chat_manager._execute_task('task_id_123')
-
     assert result == 'error during step execution: Could not find step_id: task_id_123'
     multi_modal_agent._arun_step.assert_called_once_with('task_id_123')
 
