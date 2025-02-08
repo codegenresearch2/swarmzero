@@ -118,4 +118,4 @@ async def test_chat_success(client, agent):
         response = await client.post('/api/v1/chat', data=payload, files={**dict(files)})
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.text == 'chat response' or response.text == '
+        assert response.text == 'chat response'
