@@ -84,7 +84,7 @@ class ChatManager:
         except Exception as e:
             raise Exception(f"Failed to get all chats for user: {str(e)}")
 
-    async def generate_response(self, db_manager: Optional[DatabaseManager], last_message: ChatMessage, image_document_paths: Optional[List[str]] = []):
+    async def generate_response(self, db_manager: Optional[DatabaseManager], last_message: ChatMessage, files: Optional[List[str]] = []):
         try:
             chat_history = []
             if db_manager is not None:
@@ -92,7 +92,7 @@ class ChatManager:
                 await self.add_message(db_manager, last_message.role.value, last_message.content)
 
             if self.enable_multi_modal:
-                image_documents = ([ImageDocument(image=file_store.get_file(image_path)) for image_path in image_document_paths] if image_document_paths is not None and len(image_document_paths) > 0 else [])
+                image_documents = ([ImageDocument(image=file_store.get_file(image_path)) for image_path in files] if files is not None and len(files) > 0 else [])
                 assistant_message = await self._handle_openai_multimodal(last_message, chat_history, image_documents)
             else:
                 assistant_message = await self._handle_openai_agent(last_message, chat_history)
@@ -122,9 +122,8 @@ class ChatManager:
 
     async def _execute_task(self, task_id: str) -> str:
         try:
-            while True:
-                response = await self.llm._arun_step(task_id)
-                if response.is_last:
-                    return str(self.llm.finalize_response(task_id))
+            response = await self.llm._arun_step(task_id)
+            if response.is_last:
+                return str(self.llm.finalize_response(task_id))
         except Exception as e:
-            return f"error during step execution: {str(e)}"}
+            return f"error during step execution: {str(e)}"
