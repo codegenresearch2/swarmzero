@@ -94,10 +94,11 @@ def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
 
         image_files = [file for file in stored_files if is_valid_image(file)]
 
-        return await inject_additional_attributes(
+        response = await inject_additional_attributes(
             lambda: chat_manager.generate_response(db_manager, last_message, image_files),
             {'user_id': user_id}
         )
+        return response
 
     @router.get('/chat_history', response_model=List[ChatHistorySchema]) async def get_chat_history(
         user_id: str = Query(...),
