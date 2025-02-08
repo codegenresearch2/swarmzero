@@ -8,6 +8,7 @@ from langtrace_python_sdk import inject_additional_attributes
 from llama_index.core.agent import AgentRunner, ReActAgent
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.tools import QueryEngineTool, ToolMetadata
+from fastapi import UploadFile
 
 from swarmzero.agent import Agent
 from swarmzero.chat import ChatManager
@@ -76,16 +77,13 @@ class Swarm:
             raise ValueError('no agents provided in params or config file')
 
     def _build_swarm(self):
-        query_engine_tools = ([
-            QueryEngineTool(
-                query_engine=agent_data['agent'],
-                metadata=ToolMetadata(
-                    name=self._format_tool_name(agent_name),
-                    description=agent_data['description'],
-                ),
-            )
-            for agent_name, agent_data in self.__agents.items()
-        ] if self.__agents else [])
+        query_engine_tools = ([QueryEngineTool(
+            query_engine=agent_data['agent'],
+            metadata=ToolMetadata(
+                name=self._format_tool_name(agent_name),
+                description=agent_data['description'],
+            ),
+        ) for agent_name, agent_data in self.__agents.items()] if self.__agents else [])
 
         custom_tools = tools_from_funcs(funcs=self.functions)
         tools = custom_tools + query_engine_tools
@@ -116,21 +114,22 @@ class Swarm:
         del self.__agents[name]
         self._build_swarm()
 
-    async def chat(
-        self,
-        prompt: str,
-        user_id='default_user',
-        session_id='default_chat',
-        image_document_paths: Optional[List[str]] = [],
-    ):
+    async def chat(self,
+                   prompt: str,
+                   user_id='default_user',
+                   session_id='default_chat',
+                   files: Optional[List[UploadFile]] = None):
         await self._ensure_utilities_loaded()
         db_manager = self.sdk_context.get_utility('db_manager')
 
         chat_manager = ChatManager(self.__swarm, user_id=user_id, session_id=session_id)
         last_message = ChatMessage(role=MessageRole.USER, content=prompt)
 
+        if files:
+            await self.insert_files_to_index(files)
+
         response = await inject_additional_attributes(
-            lambda: chat_manager.generate_response(db_manager, last_message, image_document_paths),
+            lambda: chat_manager.generate_response(db_manager, last_message),
             {'user_id': user_id}
         )
         return response
@@ -157,3 +156,7 @@ class Swarm:
         if not self.__utilities_loaded:
             await self.sdk_context.load_default_utility()
             self.__utilities_loaded = True
+
+    async def insert_files_to_index(self, files: List[UploadFile]):
+        # Implement the logic to insert files to index
+        pass
