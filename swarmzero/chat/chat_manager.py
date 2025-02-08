@@ -15,7 +15,7 @@ file_store = FileStore(BASE_DIR)
 
 class ChatManager:
 
-    ALLOWED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp'};
+    ALLOWED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp'}
 
     def __init__(self, llm: AgentRunner, user_id: str, session_id: str, enable_multi_modal: bool = False):
         self.llm = llm
@@ -84,7 +84,7 @@ class ChatManager:
         if db_manager is not None:
             await self.add_message(db_manager, last_message.role.value, last_message.content)
 
-        if self.enable_multi_modal:
+        if self.enable_multi_modal and files is not None and len(files) > 0:
             if not all(self.is_valid_image(image_path) for image_path in files):
                 raise ValueError('Invalid image file(s) provided.')
             image_documents = [ImageDocument(image=file_store.get_file(image_path)) for image_path in files]
