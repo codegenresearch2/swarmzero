@@ -15,6 +15,8 @@ file_store = FileStore(BASE_DIR)
 
 class ChatManager:
 
+    ALLOWED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp'}
+
     def __init__(self, llm: AgentRunner, user_id: str, session_id: str, enable_multi_modal: bool = False):
         self.llm = llm
         self.user_id = user_id
@@ -23,8 +25,7 @@ class ChatManager:
         self.enable_multi_modal = enable_multi_modal
 
     def is_valid_image(self, file_path: str) -> bool:
-        valid_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.bmp'}
-        return Path(file_path).suffix.lower() in valid_extensions
+        return Path(file_path).suffix.lower() in self.ALLOWED_IMAGE_EXTENSIONS
 
     async def add_message(self, db_manager: DatabaseManager, role: str, content: Any | None):
         try:
@@ -135,4 +136,4 @@ class ChatManager:
             else:
                 return 'Step is still processing'
         except Exception as e:
-            return f'Error during step execution: {str(e)}'
+            return f'error during step execution: {str(e)}'
