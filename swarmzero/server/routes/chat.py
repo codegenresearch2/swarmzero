@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
 
-from fastapi import (APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status)
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from langtrace_python_sdk import inject_additional_attributes  # type: ignore   # noqa
 from llama_index.core.llms import ChatMessage, MessageRole
 from pydantic import ValidationError
@@ -21,9 +21,17 @@ logger = logging.getLogger(__name__)
 
 ALLOWED_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff'}
 
+
 def get_llm_instance(id, sdk_context: SDKContext):
     attributes = sdk_context.get_attributes(
-        id, 'llm', 'agent_class', 'tools', 'instruction', 'tool_retriever', 'enable_multi_modal', 'max_iterations'
+        id,
+        'llm',
+        'agent_class',
+        'tools',
+        'instruction',
+        'tool_retriever',
+        'enable_multi_modal',
+        'max_iterations',
     )
     if attributes['agent_class'] == OpenAIMultiModalLLM:
         llm_instance = attributes['agent_class'](
@@ -38,6 +46,7 @@ def get_llm_instance(id, sdk_context: SDKContext):
             attributes['llm'], attributes['tools'], attributes['instruction'], attributes['tool_retriever']
         ).agent
     return llm_instance, attributes['enable_multi_modal']
+
 
 def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
     async def validate_chat_data(chat_data):
