@@ -1,1 +1,1 @@
-class Agent:\n    pass
+import logging\"\n\nclass Agent:\"\n    def __init__(self, id: str, name: str):\"\n        self.id = id\"\n        self.name = name\"\n\n    def get_id(self) -> str:\"\n        return self.id\"\n\n    def get_name(self) -> str:\"\n        return self.name\"\n\n# Configure logging\"\nlogging.basicConfig(level=logging.DEBUG)\"\nlogger = logging.getLogger(__name__)\"\n\n# Example usage\"\nagent = Agent('123', 'John Doe')\"\nlogger.debug(f'Agent created: ID={agent.get_id()}, Name={agent.get_name()}')\"\n
