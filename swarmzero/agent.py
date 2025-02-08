@@ -1,1 +1,1 @@
-This is a placeholder for the rewritten code snippet.
+class Agent:\n    pass
