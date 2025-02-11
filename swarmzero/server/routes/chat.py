@@ -59,7 +59,8 @@ def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Last message must be from user",
             )
-        return last_message, [ChatMessage(role=m.role, content=m.content) for m in chat_data.messages]
+        chat_history = [ChatMessage(role=m.role, content=m.content) for m in chat_data.messages]
+        return last_message, chat_history
 
     @router.post("/chat")
     async def chat(
@@ -86,7 +87,7 @@ def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
 
         stored_files = await insert_files_to_index(files, id, sdk_context) if files else []
 
-        last_message, chat_history = await validate_chat_data(chat_data_parsed)
+        last_message, _ = await validate_chat_data(chat_data_parsed)
 
         response = await inject_additional_attributes(
             lambda: chat_manager.generate_response(db_manager, last_message, stored_files), {"user_id": user_id}
