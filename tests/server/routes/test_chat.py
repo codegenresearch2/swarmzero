@@ -127,7 +127,7 @@ async def test_chat_with_image(client, agent):
         patch(
             "swarmzero.server.routes.chat.ChatManager.generate_response", return_value="chat response"
         ) as mock_generate_response,
-        patch('swarmzero.server.routes.chat.insert_files_to_index', return_value=['test.txt', 'test.jpg']),
+        patch('swarmzero.server.routes.chat.insert_files_to_index', return_value=['test.jpg']),
         patch("swarmzero.server.routes.chat.inject_additional_attributes", new=lambda fn, attributes=None: fn()),
     ):
 
