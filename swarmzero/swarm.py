@@ -126,8 +126,10 @@ class Swarm:
         prompt: str,
         user_id: str = "default_user",
         session_id: str = "default_chat",
-        files: List[str] = [],
+        files: Optional[List[str]] = None,
     ):
+        if files is None:
+            files = []
         await self._ensure_utilities_loaded()
         db_manager = self.sdk_context.get_utility("db_manager")
 
@@ -139,7 +141,7 @@ class Swarm:
         )
         return response
 
-    async def chat_history(self, user_id: str = "default_user", session_id: str = "default_chat") -> dict:
+    async def chat_history(self, user_id: str = "default_user", session_id: str = "default_chat") -> dict[str, list]:
         await self._ensure_utilities_loaded()
         db_manager = self.sdk_context.get_utility("db_manager")
 
