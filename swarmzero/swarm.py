@@ -14,6 +14,7 @@ from swarmzero.llms.llm import LLM
 from swarmzero.llms.utils import llm_from_config_without_agent, llm_from_wrapper
 from swarmzero.sdk_context import SDKContext
 from swarmzero.utils import tools_from_funcs
+from fastapi import UploadFile
 import string
 
 load_dotenv()
@@ -127,7 +128,7 @@ class Swarm:
         prompt: str,
         user_id="default_user",
         session_id="default_chat",
-        files: Optional[List[str]] = [],
+        files: Optional[List[UploadFile]] = None,
     ):
         await self._ensure_utilities_loaded()
         db_manager = self.sdk_context.get_utility("db_manager")
@@ -135,9 +136,15 @@ class Swarm:
         chat_manager = ChatManager(self.__swarm, user_id=user_id, session_id=session_id)
         last_message = ChatMessage(role=MessageRole.USER, content=prompt)
 
-        response = await inject_additional_attributes(
-            lambda: chat_manager.generate_response(db_manager, last_message, files), {"user_id": user_id}
-        )
+        if files:
+            stored_files = await self.sdk_context.insert_files_to_index(files)
+            response = await inject_additional_attributes(
+                lambda: chat_manager.generate_response(db_manager, last_message, stored_files), {"user_id": user_id}
+            )
+        else:
+            response = await inject_additional_attributes(
+                lambda: chat_manager.generate_response(db_manager, last_message), {"user_id": user_id}
+            )
         return response
 
     async def chat_history(self, user_id="default_user", session_id="default_chat") -> dict[str, list]:
@@ -152,7 +159,8 @@ class Swarm:
     def _format_tool_name(self, name: str) -> str:
         tmp = name.replace(" ", "_").replace("-", "_").lower()
         exclude = set(string.punctuation).difference(["_"])
-        result = ''.join(char for char in tmp if char not in exclude)
+        translation_table = str.maketrans("", "", ''.join(chr(i) for i in exclude))
+        result = tmp.translate(translation_table)
 
         return result
 
