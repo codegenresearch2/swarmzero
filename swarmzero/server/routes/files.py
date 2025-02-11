@@ -59,27 +59,25 @@ async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: S
                 # TODO: Update retrievers to use S3
                 continue
 
-            if "BaseRetriever" in index_store.list_indexes():
+            pinecone_api_key = os.getenv("PINECONE_API_KEY")
+            if not pinecone_api_key:
+                logger.error("PINECONE_API_KEY environment variable is not set.")
+                raise HTTPException(status_code=500, detail="PINECONE_API_KEY environment variable is not set.")
+
+            retriever = PineconeRetriever(api_key=pinecone_api_key)
+            if "BaseRetriever" not in index_store.list_indexes():
+                index, file_names = retriever.create_basic_index([file_path])
+                index_store.add_index("BaseRetriever", index, file_names)
+                logger.info("Created new basic index")
+            else:
                 index = index_store.get_index("BaseRetriever")
                 RetrieverBase().insert_documents(index, [file_path])
                 index_store.update_index("BaseRetriever", index)
                 index_store.insert_index_files("BaseRetriever", [filename])
-                logger.info("Inserting data to existing basic index")
-                logger.info(f"Index: {index_store.list_indexes()}")
-                agent.recreate_agent()
-                index_store.save_to_file()
-            else:
-                pinecone_api_key = os.getenv("PINECONE_API_KEY")
-                if not pinecone_api_key:
-                    logger.error("PINECONE_API_KEY environment variable is not set.")
-                    raise HTTPException(status_code=500, detail="PINECONE_API_KEY environment variable is not set.")
-                retriever = PineconeRetriever(api_key=pinecone_api_key)
-                index, file_names = retriever.create_basic_index([file_path])
-                index_store.add_index("BaseRetriever", index, file_names)
-                logger.info("Inserting data to new basic index")
-                logger.info(f"Index: {index_store.list_indexes()}")
-                agent.recreate_agent()
-                index_store.save_to_file()
+                logger.info("Inserted data to existing basic index")
+
+            agent.recreate_agent()
+            index_store.save_to_file()
 
         except ValueError as e:
             logger.error(f"Value error: {e}")
