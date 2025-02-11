@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import List
 
 from fastapi import (
@@ -29,29 +28,6 @@ from swarmzero.server.routes.files import insert_files_to_index
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff"}
-
-
-def get_llm_instance(id, sdk_context: SDKContext):
-    attributes = sdk_context.get_attributes(
-        id, "llm", "agent_class", "tools", "instruction", "tool_retriever", "enable_multi_modal", "max_iterations"
-    )
-    if attributes['agent_class'] == OpenAIMultiModalLLM:
-        llm_instance = attributes["agent_class"](
-            attributes["llm"],
-            attributes["tools"],
-            attributes["instruction"],
-            attributes["tool_retriever"],
-            max_iterations=attributes["max_iterations"],
-        ).agent
-    else:
-        llm_instance = attributes["agent_class"](
-            attributes["llm"], attributes["tools"], attributes["instruction"], attributes["tool_retriever"]
-        ).agent
-    return llm_instance, attributes["enable_multi_modal"]
-
-
 def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
     async def validate_chat_data(chat_data):
         if len(chat_data.messages) == 0:
@@ -66,9 +42,6 @@ def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
                 detail="Last message must be from user",
             )
         return last_message, [ChatMessage(role=m.role, content=m.content) for m in chat_data.messages]
-
-    def is_valid_image(file_path: str) -> bool:
-        return Path(file_path).suffix.lower() in ALLOWED_IMAGE_EXTENSIONS
 
     @router.post("/chat")
     async def chat(
@@ -87,7 +60,10 @@ def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
                 detail=f"Chat data is malformed: {e.json()}",
             )
 
-        stored_files = await insert_files_to_index(files, id, sdk_context)
+        stored_files = []
+        if files:
+            stored_files = await insert_files_to_index(files, id, sdk_context)
+
         llm_instance, enable_multi_modal = get_llm_instance(id, sdk_context)
 
         chat_manager = ChatManager(
@@ -97,10 +73,8 @@ def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
 
         last_message, _ = await validate_chat_data(chat_data_parsed)
 
-        image_files = [file for file in stored_files if is_valid_image(file)]
-
         return await inject_additional_attributes(
-            lambda: chat_manager.generate_response(db_manager, last_message, image_files), {"user_id": user_id}
+            lambda: chat_manager.generate_response(db_manager, last_message, stored_files), {"user_id": user_id}
         )
 
     @router.get("/chat_history", response_model=List[ChatHistorySchema])
@@ -109,7 +83,6 @@ def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
         session_id: str = Query(...),
         db: AsyncSession = Depends(get_db),
     ):
-
         llm_instance, enable_multi_modal = get_llm_instance(id, sdk_context)
 
         chat_manager = ChatManager(llm_instance, user_id=user_id, session_id=session_id)
@@ -134,7 +107,6 @@ def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
 
     @router.get("/all_chats")
     async def get_all_chats(user_id: str = Query(...), db: AsyncSession = Depends(get_db)):
-
         llm_instance, enable_multi_modal = get_llm_instance(id, sdk_context)
 
         chat_manager = ChatManager(llm_instance, user_id=user_id, session_id="")
@@ -148,3 +120,21 @@ def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
             )
 
         return all_chats
+
+    def get_llm_instance(id, sdk_context: SDKContext):
+        attributes = sdk_context.get_attributes(
+            id, "llm", "agent_class", "tools", "instruction", "tool_retriever", "enable_multi_modal", "max_iterations"
+        )
+        if attributes['agent_class'] == OpenAIMultiModalLLM:
+            llm_instance = attributes["agent_class"](
+                attributes["llm"],
+                attributes["tools"],
+                attributes["instruction"],
+                attributes["tool_retriever"],
+                max_iterations=attributes["max_iterations"],
+            ).agent
+        else:
+            llm_instance = attributes["agent_class"](
+                attributes["llm"], attributes["tools"], attributes["instruction"], attributes["tool_retriever"]
+            ).agent
+        return llm_instance, attributes["enable_multi_modal"]
