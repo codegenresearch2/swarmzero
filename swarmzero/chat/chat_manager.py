@@ -41,10 +41,11 @@ class ChatManager:
         if "SWARM_ID" in os.environ:
             data["swarm_id"] = os.getenv("SWARM_ID", "")
 
-        await db_manager.insert_data(
-            table_name="chats",
-            data=data,
-        )
+        if db_manager is not None:
+            await db_manager.insert_data(
+                table_name="chats",
+                data=data,
+            )
 
     async def get_messages(self, db_manager: DatabaseManager):
         filters = {"user_id": [self.user_id], "session_id": [self.session_id]}
@@ -87,18 +88,23 @@ class ChatManager:
         last_message: ChatMessage,
         files: Optional[List[str]] = [],
     ) -> str:
-        chat_history = await self.get_messages(db_manager) if db_manager is not None else []
+        chat_history = []
+
+        if db_manager is not None:
+            chat_history = await self.get_messages(db_manager)
 
         image_documents = [ImageDocument(image=file_store.get_file(file_path)) for file_path in files if self.is_valid_image(file_path)]
 
-        await self.add_message(db_manager, last_message.role.value, last_message.content)
+        if db_manager is not None:
+            await self.add_message(db_manager, last_message.role.value, last_message.content)
 
         if self.enable_multi_modal:
             assistant_message = await self._handle_openai_multimodal(last_message, chat_history, image_documents)
         else:
             assistant_message = await self._handle_openai_agent(last_message, chat_history)
 
-        await self.add_message(db_manager, MessageRole.ASSISTANT, assistant_message)
+        if db_manager is not None:
+            await self.add_message(db_manager, MessageRole.ASSISTANT, assistant_message)
 
         return assistant_message
 
