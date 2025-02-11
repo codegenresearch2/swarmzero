@@ -204,7 +204,7 @@ class Agent:
         prompt: str,
         user_id: str = "default_user",
         session_id: str = "default_chat",
-        files: List[UploadFile] = [],
+        files: Optional[List[UploadFile]] = [],
     ):
         await self._ensure_utilities_loaded()
         db_manager = self.sdk_context.get_utility("db_manager")
