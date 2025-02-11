@@ -134,10 +134,10 @@ class Swarm:
         chat_manager = ChatManager(self.__swarm, user_id=user_id, session_id=session_id)
         last_message = ChatMessage(role=MessageRole.USER, content=prompt)
 
-        # Handle files
-        stored_files = []
         if files:
             stored_files = await insert_files_to_index(files, self.sdk_context)  # Added sdk_context parameter
+        else:
+            stored_files = []
 
         response = await inject_additional_attributes(
             lambda: chat_manager.generate_response(db_manager, last_message, stored_files), {"user_id": user_id}
