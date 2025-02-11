@@ -37,6 +37,11 @@ USE_S3 = os.getenv("USE_S3", "false").lower() == "true"
 
 
 async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: SDKContext):
+    pinecone_api_key = os.getenv("PINECONE_API_KEY")
+    if not pinecone_api_key:
+        logger.error("PINECONE_API_KEY environment variable is not set.")
+        raise HTTPException(status_code=400, detail="PINECONE_API_KEY environment variable is required.")
+
     saved_files = []
     for file in files:
         if not file.content_type:
@@ -58,11 +63,6 @@ async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: S
             if USE_S3:
                 # TODO: Update retrievers to use S3
                 continue
-
-            pinecone_api_key = os.getenv("PINECONE_API_KEY")
-            if not pinecone_api_key:
-                logger.error("PINECONE_API_KEY environment variable is not set.")
-                raise HTTPException(status_code=500, detail="PINECONE_API_KEY environment variable is not set.")
 
             retriever = PineconeRetriever(api_key=pinecone_api_key)
             if "BaseRetriever" not in index_store.list_indexes():
