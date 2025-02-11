@@ -21,6 +21,7 @@ class ChatManager:
         self.session_id = session_id
         self.enable_multi_modal = enable_multi_modal
         self.allowed_image_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff'}
+        self.chat_store_key = f"{user_id}_{session_id}"
 
     def is_valid_image(self, file_path: str) -> bool:
         return Path(file_path).suffix.lower() in self.allowed_image_extensions
@@ -95,10 +96,7 @@ class ChatManager:
             except Exception as e:
                 raise ValueError(f"Failed to generate response: {e}")
 
-        if files and self.is_valid_image(files[0]):
-            image_documents = [ImageDocument(image=file_store.get_file(file_path)) for file_path in files]
-        else:
-            image_documents = []
+        image_documents = [ImageDocument(image=file_store.get_file(file_path)) for file_path in files if self.is_valid_image(file_path)]
 
         if self.enable_multi_modal:
             assistant_message = await self._handle_openai_multimodal(last_message, chat_history, image_documents)
