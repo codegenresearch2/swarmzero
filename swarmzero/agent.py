@@ -459,6 +459,3 @@ class Agent:
                 print(f"Installed function: {func_name} from {module_name}")
 
         self.recreate_agent()
-
-
-This updated code snippet includes the `insert_files_to_index` function, which was missing from the original code. It also ensures that the `files` parameter in the `chat` method is optional and handles the case where no files are provided. Additionally, it includes necessary imports and adjusts the logging levels to match the gold code's expectations.
