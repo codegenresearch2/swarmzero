@@ -38,8 +38,8 @@ from swarmzero.tools.retriever.chroma_retrieve import ChromaRetriever
 from swarmzero.tools.retriever.pinecone_retrieve import PineconeRetriever
 from swarmzero.utils import tools_from_funcs
 
-# Import UploadFile from fastapi
-from fastapi import UploadFile
+# Import necessary functions from swarmzero.server.routes.files
+from swarmzero.server.routes.files import insert_files_to_index
 
 load_dotenv()
 
@@ -208,13 +208,17 @@ class Agent:
         prompt: str,
         user_id="default_user",
         session_id="default_chat",
-        files: Optional[List[UploadFile]] = None,
+        files: List[UploadFile] = [],
     ):
         await self._ensure_utilities_loaded()
         db_manager = self.sdk_context.get_utility("db_manager")
 
         chat_manager = ChatManager(self.__agent, user_id=user_id, session_id=session_id)
         last_message = ChatMessage(role=MessageRole.USER, content=prompt)
+
+        # Process files before generating a response
+        if files:
+            await insert_files_to_index(files)
 
         response = await inject_additional_attributes(
             lambda: chat_manager.generate_response(db_manager, last_message, files), {"user_id": user_id}
