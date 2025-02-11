@@ -10,7 +10,7 @@ from typing import Callable, List, Optional
 
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from langtrace_python_sdk import inject_additional_attributes  # type: ignore   # noqa
 from llama_index.core.agent import AgentRunner  # noqa
@@ -28,8 +28,12 @@ from swarmzero.llms.utils import llm_from_config
 from swarmzero.sdk_context import SDKContext
 from swarmzero.server.models import ToolInstallRequest
 from swarmzero.server.routes import files, setup_routes
-from swarmzero.server.routes.files import insert_files_to_index
-from swarmzero.tools.retriever.base_retrieve import IndexStore, RetrieverBase, index_base_dir, supported_exts
+from swarmzero.tools.retriever.base_retrieve import (
+    IndexStore,
+    RetrieverBase,
+    index_base_dir,
+    supported_exts,
+)
 from swarmzero.tools.retriever.chroma_retrieve import ChromaRetriever
 from swarmzero.tools.retriever.pinecone_retrieve import PineconeRetriever
 from swarmzero.utils import tools_from_funcs
@@ -49,20 +53,20 @@ class Agent:
         name: str,
         functions: List[Callable],
         llm: Optional[LLM] = None,
-        config_path="./swarmzero_config_example.toml",
-        host="0.0.0.0",
-        port=8000,
-        instruction="",
-        role="",
-        description="",
-        agent_id=os.getenv("AGENT_ID", ""),
-        retrieve=False,
-        required_exts=supported_exts,
-        retrieval_tool="basic",
+        config_path: str = "./swarmzero_config_example.toml",
+        host: str = "0.0.0.0",
+        port: int = 8000,
+        instruction: str = "",
+        role: str = "",
+        description: str = "",
+        agent_id: str = os.getenv("AGENT_ID", str(uuid.uuid4())),
+        retrieve: bool = False,
+        required_exts: List[str] = supported_exts,
+        retrieval_tool: str = "basic",
         index_name: Optional[str] = None,
-        load_index_file=False,
-        swarm_mode=False,
-        chat_only_mode=False,
+        load_index_file: bool = False,
+        swarm_mode: bool = False,
+        chat_only_mode: bool = False,
         sdk_context: Optional[SDKContext] = None,
         max_iterations: Optional[int] = 10,
     ):
@@ -126,7 +130,6 @@ class Agent:
         return False
 
     def __setup(self):
-
         self.get_indexstore()
         self.init_agent()
 
@@ -134,7 +137,6 @@ class Agent:
             self.__setup_server()
 
     def __setup_server(self):
-
         self.__configure_cors()
         setup_routes(self.__app, self.id, self.sdk_context)
 
@@ -199,9 +201,9 @@ class Agent:
     async def chat(
         self,
         prompt: str,
-        user_id="default_user",
-        session_id="default_chat",
-        files: Optional[List[UploadFile]] = [],
+        user_id: str = "default_user",
+        session_id: str = "default_chat",
+        image_document_paths: Optional[List[str]] = [],
     ):
         await self._ensure_utilities_loaded()
         db_manager = self.sdk_context.get_utility("db_manager")
@@ -209,17 +211,12 @@ class Agent:
         chat_manager = ChatManager(self.__agent, user_id=user_id, session_id=session_id)
         last_message = ChatMessage(role=MessageRole.USER, content=prompt)
 
-        stored_files = []
-        if files and len(files) > 0:
-            stored_files = await insert_files_to_index(files, self.id, self.sdk_context)
-
         response = await inject_additional_attributes(
-            lambda: chat_manager.generate_response(db_manager, last_message, stored_files),
-            {"user_id": user_id},
+            lambda: chat_manager.generate_response(db_manager, last_message, image_document_paths), {"user_id": user_id}
         )
         return response
 
-    async def chat_history(self, user_id="default_user", session_id="default_chat") -> dict[str, list]:
+    async def chat_history(self, user_id: str = "default_user", session_id: str = "default_chat") -> dict[str, list]:
         await self._ensure_utilities_loaded()
         db_manager = self.sdk_context.get_utility("db_manager")
 
@@ -270,7 +267,6 @@ class Agent:
             self.add_batch_indexes()
 
     def add_batch_indexes(self):
-
         if "basic" in self.retrieval_tool:
             retriever = RetrieverBase()
             index, file_names = retriever.create_basic_index()
@@ -303,13 +299,10 @@ class Agent:
             self.index_store.save_to_file()
 
     def get_tools(self):
-
         tools = tools_from_funcs(self.functions)
-
         return tools
 
     def init_agent(self):
-
         tools = self.get_tools()
         tool_retriever = None
 
@@ -406,7 +399,7 @@ class Agent:
         self.functions.append(function_tool)
         self.recreate_agent()
 
-    def install_tools(self, tools: List[ToolInstallRequest], install_path="swarmzero-data/tools"):
+    def install_tools(self, tools: List[ToolInstallRequest], install_path: str = "swarmzero-data/tools"):
         """
         Install tools from a list of tool configurations.
 
