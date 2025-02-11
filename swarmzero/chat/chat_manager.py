@@ -91,14 +91,11 @@ class ChatManager:
             chat_history = await self.get_messages(db_manager)
             await self.add_message(db_manager, last_message.role.value, last_message.content)
 
-        if files and len(files) > 0:
-            image_documents = [
-                ImageDocument(image=file_store.get_file(file))
-                for file in files
-                if self.is_valid_image(file)
-            ]
-        else:
-            image_documents = []
+        image_documents = [
+            ImageDocument(image=file_store.get_file(file))
+            for file in files
+            if self.is_valid_image(file)
+        ] if files else []
 
         if self.enable_multi_modal:
             assistant_message = await self._handle_openai_multimodal(last_message, chat_history, image_documents)
