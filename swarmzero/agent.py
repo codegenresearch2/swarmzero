@@ -75,30 +75,29 @@ class Agent:
         self.name = name
         self.functions = functions
         self.config_path = config_path
-        self.__host = host
-        self.__port = port
-        self.__app = FastAPI()
+        self.host = host
+        self.port = port
         self.shutdown_event = asyncio.Event()
         self.instruction = instruction
         self.role = role
         self.description = description
         self.sdk_context = sdk_context if sdk_context is not None else SDKContext(config_path=config_path)
-        self.__config = self.sdk_context.get_config(self.name)
+        self.config = self.sdk_context.get_config(self.name)
         self.__llm = llm if llm is not None else None
         self.max_iterations = max_iterations
         self.__optional_dependencies: dict[str, bool] = {}
-        self.__swarm_mode = swarm_mode
-        self.__chat_only_mode = chat_only_mode
+        self.swarm_mode = swarm_mode
+        self.chat_only_mode = chat_only_mode
         self.retrieve = retrieve
         self.required_exts = required_exts
         self.retrieval_tool = retrieval_tool
         self.index_name = index_name
         self.load_index_file = load_index_file
-        logging.basicConfig(stream=sys.stdout, level=self.__config.get("log"))
+        logging.basicConfig(stream=sys.stdout, level=self.config.get("log"))
         logging.getLogger().addHandler(logging.StreamHandler(stream=sys.stdout))
 
         self.logger = logging.getLogger()
-        self.logger.setLevel(self.__config.get("log"))
+        self.logger.setLevel(self.config.get("log"))
 
         self._check_optional_dependencies()
         self.__setup()
@@ -110,7 +109,7 @@ class Agent:
 
     async def _ensure_utilities_loaded(self):
         """Load utilities if they are not already loaded."""
-        if not self.__utilities_loaded and self.__chat_only_mode:
+        if not self.__utilities_loaded and self.chat_only_mode:
             await self.sdk_context.load_default_utility()
             self.__utilities_loaded = True
 
@@ -134,7 +133,7 @@ class Agent:
         self.get_indexstore()
         self.init_agent()
 
-        if self.__swarm_mode is False and self.__chat_only_mode is False:
+        if not self.swarm_mode and not self.chat_only_mode:
             self.__setup_server()
 
     def __setup_server(self):
@@ -163,7 +162,7 @@ class Agent:
         signal.signal(signal.SIGTERM, self.__signal_handler)
 
     def __configure_cors(self):
-        environment = self.__config.get("environment")  # default to 'development' if not set
+        environment = self.config.get("environment")  # default to 'development' if not set
 
         if environment == "dev":
             logger = logging.getLogger("uvicorn")
@@ -178,7 +177,7 @@ class Agent:
 
     async def run_server(self):
         try:
-            config = uvicorn.Config(app=self.__app, host=self.__host, port=self.__port, loop="asyncio")
+            config = uvicorn.Config(app=self.__app, host=self.host, port=self.port, loop="asyncio")
             server = uvicorn.Server(config)
             await server.serve()
         except Exception as e:
@@ -362,9 +361,9 @@ class Agent:
                 self.__agent = agent_class(llm, tools, self.instruction, tool_retriever).agent
 
         else:
-            model = self.__config.get("model")
-            enable_multi_modal = self.__config.get("enable_multi_modal")
-            llm = llm_from_config(self.__config)
+            model = self.config.get("model")
+            enable_multi_modal = self.config.get("enable_multi_modal")
+            llm = llm_from_config(self.config)
 
             if model.startswith("gpt-4") and enable_multi_modal is True:
                 agent_class = OpenAIMultiModalLLM
