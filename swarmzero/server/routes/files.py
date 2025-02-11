@@ -34,11 +34,6 @@ file_store = FileStore(BASE_DIR)
 
 index_store = IndexStore.get_instance()
 USE_S3 = os.getenv("USE_S3", "false").lower() == "true"
-PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-
-if not PINECONE_API_KEY:
-    logger.error("PINECONE_API_KEY environment variable is not set.")
-    raise HTTPException(status_code=500, detail="PINECONE_API_KEY environment variable is not set.")
 
 
 async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: SDKContext):
@@ -74,7 +69,11 @@ async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: S
                 agent.recreate_agent()
                 index_store.save_to_file()
             else:
-                retriever = PineconeRetriever(api_key=PINECONE_API_KEY)
+                pinecone_api_key = os.getenv("PINECONE_API_KEY")
+                if not pinecone_api_key:
+                    logger.error("PINECONE_API_KEY environment variable is not set.")
+                    raise HTTPException(status_code=500, detail="PINECONE_API_KEY environment variable is not set.")
+                retriever = PineconeRetriever(api_key=pinecone_api_key)
                 index, file_names = retriever.create_basic_index([file_path])
                 index_store.add_index("BaseRetriever", index, file_names)
                 logger.info("Inserting data to new basic index")
