@@ -38,6 +38,9 @@ from swarmzero.tools.retriever.chroma_retrieve import ChromaRetriever
 from swarmzero.tools.retriever.pinecone_retrieve import PineconeRetriever
 from swarmzero.utils import tools_from_funcs
 
+# Import UploadFile from fastapi
+from fastapi import UploadFile
+
 load_dotenv()
 
 
@@ -205,7 +208,7 @@ class Agent:
         prompt: str,
         user_id="default_user",
         session_id="default_chat",
-        files: List[UploadFile] = [],
+        files: Optional[List[UploadFile]] = None,
     ):
         await self._ensure_utilities_loaded()
         db_manager = self.sdk_context.get_utility("db_manager")
