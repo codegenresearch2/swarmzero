@@ -15,6 +15,7 @@ from swarmzero.llms.utils import llm_from_config_without_agent, llm_from_wrapper
 from swarmzero.sdk_context import SDKContext
 from swarmzero.utils import tools_from_funcs
 from fastapi import UploadFile
+from swarmzero.server.routes.files import insert_files_to_index
 import string
 
 load_dotenv()
@@ -128,7 +129,7 @@ class Swarm:
         prompt: str,
         user_id="default_user",
         session_id="default_chat",
-        files: Optional[List[UploadFile]] = None,
+        files: Optional[List[UploadFile]] = [],
     ):
         await self._ensure_utilities_loaded()
         db_manager = self.sdk_context.get_utility("db_manager")
@@ -136,8 +137,8 @@ class Swarm:
         chat_manager = ChatManager(self.__swarm, user_id=user_id, session_id=session_id)
         last_message = ChatMessage(role=MessageRole.USER, content=prompt)
 
-        if files:
-            stored_files = await self.sdk_context.insert_files_to_index(files)
+        if files and len(files) > 0:
+            stored_files = await insert_files_to_index(files)
             response = await inject_additional_attributes(
                 lambda: chat_manager.generate_response(db_manager, last_message, stored_files), {"user_id": user_id}
             )
@@ -158,8 +159,8 @@ class Swarm:
 
     def _format_tool_name(self, name: str) -> str:
         tmp = name.replace(" ", "_").replace("-", "_").lower()
-        exclude = set(string.punctuation).difference(["_"])
-        translation_table = str.maketrans("", "", ''.join(chr(i) for i in exclude))
+        exclude = string.punctuation
+        translation_table = str.maketrans("", "", exclude)
         result = tmp.translate(translation_table)
 
         return result
