@@ -1,6 +1,7 @@
 import os
 from datetime import datetime, timezone
-from typing import Any, List, Optional
+from typing import List, Optional
+from pathlib import Path
 
 from llama_index.core.agent.runner.base import AgentRunner
 from llama_index.core.llms import ChatMessage, MessageRole
@@ -12,8 +13,8 @@ from swarmzero.filestore import BASE_DIR, FileStore
 
 file_store = FileStore(BASE_DIR)
 
-
 class ChatManager:
+    VALID_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp'}
 
     def __init__(self, llm: AgentRunner, user_id: str, session_id: str, enable_multi_modal: bool = False):
         self.llm = llm
@@ -23,11 +24,9 @@ class ChatManager:
         self.enable_multi_modal = enable_multi_modal
 
     def is_valid_image(self, file_path: str) -> bool:
-        valid_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.bmp'}
-        _, ext = os.path.splitext(file_path)
-        return ext.lower() in valid_extensions
+        return Path(file_path).suffix.lower() in self.VALID_IMAGE_EXTENSIONS
 
-    async def add_message(self, db_manager: DatabaseManager, role: str, content: Any | None):
+    async def add_message(self, db_manager: DatabaseManager, role: str, content: str | None):
         data = {
             "user_id": self.user_id,
             "session_id": self.session_id,
@@ -84,7 +83,7 @@ class ChatManager:
         self,
         db_manager: Optional[DatabaseManager],
         last_message: ChatMessage,
-        files: List[str],
+        files: Optional[List[str]] = [],
     ) -> str:
         chat_history = []
 
@@ -92,8 +91,11 @@ class ChatManager:
             chat_history = await self.get_messages(db_manager)
             await self.add_message(db_manager, last_message.role.value, last_message.content)
 
-        valid_files = [file for file in files if self.is_valid_image(file)]
-        image_documents = [ImageDocument(image=file_store.get_file(file)) for file in valid_files if self.is_valid_image(file)]
+        image_documents = [
+            ImageDocument(image=file_store.get_file(file))
+            for file in files
+            if self.is_valid_image(file)
+        ]
 
         if self.enable_multi_modal:
             assistant_message = await self._handle_openai_multimodal(last_message, chat_history, image_documents)
