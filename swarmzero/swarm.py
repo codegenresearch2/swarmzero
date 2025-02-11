@@ -126,7 +126,7 @@ class Swarm:
         prompt: str,
         user_id: str = "default_user",
         session_id: str = "default_chat",
-        image_document_paths: Optional[List[str]] = [],
+        files: Optional[List[str]] = [],
     ):
         await self._ensure_utilities_loaded()
         db_manager = self.sdk_context.get_utility("db_manager")
@@ -135,7 +135,7 @@ class Swarm:
         last_message = ChatMessage(role=MessageRole.USER, content=prompt)
 
         response = await inject_additional_attributes(
-            lambda: chat_manager.generate_response(db_manager, last_message, image_document_paths), {"user_id": user_id}
+            lambda: chat_manager.generate_response(db_manager, last_message, files), {"user_id": user_id}
         )
         return response
 
@@ -150,8 +150,7 @@ class Swarm:
 
     def _format_tool_name(self, name: str) -> str:
         tmp = name.replace(" ", "_").replace("-", "_").lower()
-        exclude = "!@#$%^&*()[]{};:,./<>?\|`~-=_+"
-        result = "".join(char for char in tmp if char not in exclude)
+        result = "".join(char if char not in "!@#$%^&*()[]{};:,./<>?\|`~-=_+" else "_" for char in tmp)
 
         return result
 
