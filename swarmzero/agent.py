@@ -17,6 +17,7 @@ from llama_index.core.agent import AgentRunner  # noqa
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.objects import ObjectIndex
 from llama_index.core.tools import QueryEngineTool, ToolMetadata
+from fastapi.datastructures import UploadFile
 
 from swarmzero.chat import ChatManager
 from swarmzero.llms.claude import ClaudeLLM
@@ -203,7 +204,7 @@ class Agent:
         prompt: str,
         user_id: str = "default_user",
         session_id: str = "default_chat",
-        files: Optional[List[UploadFile]] = None,
+        files: List[UploadFile] = [],
     ):
         await self._ensure_utilities_loaded()
         db_manager = self.sdk_context.get_utility("db_manager")
