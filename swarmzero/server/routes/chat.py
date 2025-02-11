@@ -28,6 +28,24 @@ from swarmzero.server.routes.files import insert_files_to_index
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def get_llm_instance(id, sdk_context: SDKContext):
+    attributes = sdk_context.get_attributes(
+        id, "llm", "agent_class", "tools", "instruction", "tool_retriever", "enable_multi_modal", "max_iterations"
+    )
+    if attributes['agent_class'] == OpenAIMultiModalLLM:
+        llm_instance = attributes["agent_class"](
+            attributes["llm"],
+            attributes["tools"],
+            attributes["instruction"],
+            attributes["tool_retriever"],
+            max_iterations=attributes["max_iterations"],
+        ).agent
+    else:
+        llm_instance = attributes["agent_class"](
+            attributes["llm"], attributes["tools"], attributes["instruction"], attributes["tool_retriever"]
+        ).agent
+    return llm_instance, attributes["enable_multi_modal"]
+
 def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
     async def validate_chat_data(chat_data):
         if len(chat_data.messages) == 0:
@@ -120,21 +138,3 @@ def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
             )
 
         return all_chats
-
-    def get_llm_instance(id, sdk_context: SDKContext):
-        attributes = sdk_context.get_attributes(
-            id, "llm", "agent_class", "tools", "instruction", "tool_retriever", "enable_multi_modal", "max_iterations"
-        )
-        if attributes['agent_class'] == OpenAIMultiModalLLM:
-            llm_instance = attributes["agent_class"](
-                attributes["llm"],
-                attributes["tools"],
-                attributes["instruction"],
-                attributes["tool_retriever"],
-                max_iterations=attributes["max_iterations"],
-            ).agent
-        else:
-            llm_instance = attributes["agent_class"](
-                attributes["llm"], attributes["tools"], attributes["instruction"], attributes["tool_retriever"]
-            ).agent
-        return llm_instance, attributes["enable_multi_modal"]
