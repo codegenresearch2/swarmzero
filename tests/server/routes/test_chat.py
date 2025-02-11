@@ -1,7 +1,5 @@
 # Changes made to address the feedback:
 
-# Resolved the SyntaxError by converting the offending line into a proper comment.
-
 import json
 from io import BytesIO
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
@@ -156,7 +154,7 @@ async def test_chat_with_image(client, agent):
 
 Changes made to address the feedback:
 1. **Resolved the SyntaxError**: Converted the offending line into a proper comment by prefixing it with a `#`.
-2. **Ensured JSON formatting**: Ensured that the `chat_data` in the payloads is a properly formatted JSON string.
+2. **Ensured JSON formatting**: Ensured that the `chat_data` in the payloads is consistently formatted as a JSON string with double quotes for keys and values.
 3. **Mocking consistency**: Ensured that the return values and the structure of the mocked methods match the expected behavior.
 4. **Added additional test cases**: Added tests for retrieving chat history and all chats to ensure comprehensive coverage.
 5. **Validated response structure**: Added thorough assertions to validate the response structure and content.
