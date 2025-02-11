@@ -22,6 +22,11 @@ class ChatManager:
         self.chat_store_key = f"{user_id}_{session_id}"
         self.enable_multi_modal = enable_multi_modal
 
+    def is_valid_image(self, file_path: str) -> bool:
+        valid_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.bmp'}
+        _, ext = os.path.splitext(file_path)
+        return ext.lower() in valid_extensions
+
     async def add_message(self, db_manager: DatabaseManager, role: str, content: Any | None):
         data = {
             "user_id": self.user_id,
@@ -79,7 +84,7 @@ class ChatManager:
         self,
         db_manager: Optional[DatabaseManager],
         last_message: ChatMessage,
-        image_document_paths: Optional[List[str]] = [],
+        files: List[str],
     ) -> str:
         chat_history = []
 
@@ -87,12 +92,10 @@ class ChatManager:
             chat_history = await self.get_messages(db_manager)
             await self.add_message(db_manager, last_message.role.value, last_message.content)
 
+        valid_files = [file for file in files if self.is_valid_image(file)]
+        image_documents = [ImageDocument(image=file_store.get_file(file)) for file in valid_files if self.is_valid_image(file)]
+
         if self.enable_multi_modal:
-            image_documents = (
-                [ImageDocument(image=file_store.get_file(image_path)) for image_path in image_document_paths]
-                if image_document_paths is not None and len(image_document_paths) > 0
-                else []
-            )
             assistant_message = await self._handle_openai_multimodal(last_message, chat_history, image_documents)
         else:
             assistant_message = await self._handle_openai_agent(last_message, chat_history)
