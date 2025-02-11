@@ -133,6 +133,11 @@ class Swarm:
         chat_manager = ChatManager(self.__swarm, user_id=user_id, session_id=session_id)
         last_message = ChatMessage(role=MessageRole.USER, content=prompt)
 
+        # Include logic to handle files
+        if files:
+            # Implement the logic to insert files into the index
+            pass
+
         response = await inject_additional_attributes(
             lambda: chat_manager.generate_response(db_manager, last_message, files), {"user_id": user_id}
         )
