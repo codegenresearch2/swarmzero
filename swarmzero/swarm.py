@@ -1,10 +1,8 @@
 import os
-import string
 import uuid
 from typing import Any, Callable, Dict, List, Optional
 
 from dotenv import load_dotenv
-from fastapi import UploadFile
 from langtrace_python_sdk import inject_additional_attributes
 from llama_index.core.agent import AgentRunner, ReActAgent
 from llama_index.core.llms import ChatMessage, MessageRole
@@ -15,7 +13,6 @@ from swarmzero.chat import ChatManager
 from swarmzero.llms.llm import LLM
 from swarmzero.llms.utils import llm_from_config_without_agent, llm_from_wrapper
 from swarmzero.sdk_context import SDKContext
-from swarmzero.server.routes.files import insert_files_to_index
 from swarmzero.utils import tools_from_funcs
 
 load_dotenv()
@@ -43,12 +40,12 @@ class Swarm:
         functions: List[Callable],
         agents: Optional[List[Agent]] = None,
         llm: Optional[LLM] = None,
-        config_path="./swarmzero_config_example.toml",
-        swarm_id=os.getenv("SWARM_ID", ""),
+        config_path: str = "./swarmzero_config_example.toml",
+        swarm_id: str = os.getenv("SWARM_ID", ""),
         sdk_context: Optional[SDKContext] = None,
         max_iterations: Optional[int] = 10,
     ):
-        self.id = swarm_id if swarm_id != "" else str(uuid.uuid4())
+        self.id = swarm_id if swarm_id else str(uuid.uuid4())
         self.name = name
         self.description = description
         self.instruction = instruction
@@ -77,7 +74,7 @@ class Swarm:
             self.sdk_context.add_resource(self, resource_type="swarm")
             self._build_swarm()
         else:
-            raise ValueError("no agents provided in params or config file")
+            raise ValueError("No agents provided in params or config file")
 
     def _build_swarm(self):
         query_engine_tools = (
@@ -127,9 +124,9 @@ class Swarm:
     async def chat(
         self,
         prompt: str,
-        user_id="default_user",
-        session_id="default_chat",
-        files: Optional[List[UploadFile]] = [],
+        user_id: str = "default_user",
+        session_id: str = "default_chat",
+        image_document_paths: Optional[List[str]] = [],
     ):
         await self._ensure_utilities_loaded()
         db_manager = self.sdk_context.get_utility("db_manager")
@@ -137,16 +134,12 @@ class Swarm:
         chat_manager = ChatManager(self.__swarm, user_id=user_id, session_id=session_id)
         last_message = ChatMessage(role=MessageRole.USER, content=prompt)
 
-        stored_files = []
-        if files and len(files) > 0:
-            stored_files = await insert_files_to_index(files, self.id, self.sdk_context)
-
         response = await inject_additional_attributes(
-            lambda: chat_manager.generate_response(db_manager, last_message, stored_files), {"user_id": user_id}
+            lambda: chat_manager.generate_response(db_manager, last_message, image_document_paths), {"user_id": user_id}
         )
         return response
 
-    async def chat_history(self, user_id="default_user", session_id="default_chat") -> dict[str, list]:
+    async def chat_history(self, user_id: str = "default_user", session_id: str = "default_chat") -> dict:
         await self._ensure_utilities_loaded()
         db_manager = self.sdk_context.get_utility("db_manager")
 
@@ -157,9 +150,8 @@ class Swarm:
 
     def _format_tool_name(self, name: str) -> str:
         tmp = name.replace(" ", "_").replace("-", "_").lower()
-        exclude = string.punctuation.replace("_", "")
-        translation_table = str.maketrans("", "", exclude)
-        result = tmp.translate(translation_table)
+        exclude = "!@#$%^&*()[]{};:,./<>?\|`~-=_+"
+        result = "".join(char for char in tmp if char not in exclude)
 
         return result
 
