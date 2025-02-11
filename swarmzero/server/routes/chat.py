@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import List
 
 from fastapi import (
@@ -81,7 +80,9 @@ def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
                 detail=f"Chat data is malformed: {e.json()}",
             )
 
-        stored_files = await insert_files_to_index(files, id, sdk_context)
+        stored_files = []
+        if files:
+            stored_files = await insert_files_to_index(files, id, sdk_context)
 
         llm_instance, enable_multi_modal = get_llm_instance(id, sdk_context)
 
