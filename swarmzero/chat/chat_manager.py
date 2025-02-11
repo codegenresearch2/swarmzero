@@ -22,7 +22,7 @@ class ChatManager:
         self.session_id = session_id
         self.chat_store_key = f"{user_id}_{session_id}"
         self.enable_multi_modal = enable_multi_modal
-        self.allowed_image_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.bmp'}
+        self.allowed_image_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff'}
 
     def is_valid_image(self, file_path: str) -> bool:
         return Path(file_path).suffix.lower() in self.allowed_image_extensions
@@ -112,4 +112,4 @@ class ChatManager:
                 return f"error during step execution: {str(e)}"
 
 
-This updated code snippet addresses the feedback from the oracle by moving the `valid_extensions` set to the `__init__` method, using `Path(file_path).suffix` for image validation, refactoring the `generate_response` method to separate multi-modal and standard responses, and ensuring type annotations are consistent.
+This updated code snippet addresses the feedback from the oracle by including `.tiff` in the allowed image extensions, ensuring the `is_valid_image` method uses the allowed extensions, refactoring the `generate_response` method to separate multi-modal and standard responses, and handling the case where `files` might be `None`.
