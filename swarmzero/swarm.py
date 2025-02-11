@@ -150,7 +150,7 @@ class Swarm:
 
     def _format_tool_name(self, name: str) -> str:
         exclude = "!@#$%^&*()[]{};:,./<>?\|`~-=_+"
-        result = "".join(char if char not in exclude else "" for char in name.replace(" ", "_").replace("-", "_").lower())
+        result = "".join(char if char not in exclude else "_" for char in name.replace(" ", "_").replace("-", "_").lower())
 
         return result
 
