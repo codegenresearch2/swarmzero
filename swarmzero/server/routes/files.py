@@ -44,25 +44,15 @@ async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: S
 
     saved_files = []
     for file in files:
-        if not file.content_type:
-            logger.warning(f"File {file.filename} has no content type.")
-            raise HTTPException(status_code=400, detail="File content type is missing.")
-
         if file.content_type not in ALLOWED_FILE_TYPES:
             logger.warning(f"Disallowed file type upload attempted: {file.content_type}")
-            raise HTTPException(
-                status_code=400,
-                detail=f"File type {file.content_type} is not allowed.",
-            )
+            raise HTTPException(status_code=400, detail=f"File type {file.content_type} is not allowed.")
+
         try:
             agent = sdk_context.get_resource(id)
             filename = await file_store.save_file(file)
-            file_path = "{BASE_DIR}/{filename}".format(BASE_DIR=BASE_DIR, filename=filename) if not USE_S3 else filename
+            file_path = f"{BASE_DIR}/{filename}" if not USE_S3 else filename
             saved_files.append(file_path)
-
-            if USE_S3:
-                # TODO: Update retrievers to use S3
-                continue
 
             retriever = PineconeRetriever(api_key=pinecone_api_key)
             if "BaseRetriever" not in index_store.list_indexes():
@@ -95,11 +85,12 @@ async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: S
 def setup_files_routes(router: APIRouter, id: str, sdk_context: SDKContext):
     @router.post("/uploadfiles/")
     async def create_upload_files(files: List[UploadFile] = File(...)):
-
-        saved_files = await insert_files_to_index(files, id, sdk_context)
-
-        logger.info(f"Uploaded files: {saved_files}")
-        return {"filenames": saved_files}
+        try:
+            saved_files = await insert_files_to_index(files, id, sdk_context)
+            logger.info(f"Uploaded files: {saved_files}")
+            return {"filenames": saved_files}
+        except HTTPException as he:
+            raise he
 
     @router.get("/files/")
     async def list_files():
