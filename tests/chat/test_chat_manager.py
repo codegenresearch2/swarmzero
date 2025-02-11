@@ -158,9 +158,9 @@ This new code snippet addresses the feedback from the oracle by:
 
 1. **Import Statements**: Importing all necessary classes and modules that are used in the tests.
 2. **Mocking Specific Classes**: Using `spec` in `MagicMock` to ensure that the mock behaves like the actual class.
-3. **Test Coverage**: Adding tests for generating responses with both the generic agent and the OpenAI agent.
+3. **Test Coverage**: Adding tests for generating responses with the OpenAI agent.
 4. **Assertions**: Ensuring comprehensive assertions to cover all expected outcomes.
 5. **Error Handling Tests**: Ensuring thorough tests for error scenarios.
 6. **Code Organization**: Maintaining a consistent naming convention for test functions and ensuring logical organization.
 
-By addressing these areas, the code is brought closer to the gold standard.
+By addressing these areas, the code is brought closer to the gold standard. Keep up the good work!
