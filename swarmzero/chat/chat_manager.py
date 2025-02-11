@@ -112,5 +112,4 @@ class ChatManager:
                 return f"error during step execution: {str(e)}"
 
 
-
 This updated code snippet addresses the feedback from the oracle by ensuring the allowed image extensions are defined consistently, refactoring the `generate_response` method to separate multi-modal and standard responses, and handling the case where `files` might be `None`.
