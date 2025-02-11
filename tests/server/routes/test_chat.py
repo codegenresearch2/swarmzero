@@ -79,7 +79,6 @@ async def test_chat_last_message_not_user(client):
             {
                 "messages": [
                     {"role": MessageRole.SYSTEM, "content": "System message"},
-                    {"role": MessageRole.USER, "content": "User message"},
                     {"role": MessageRole.SYSTEM, "content": "Another system message"},
                 ]
             }
@@ -150,12 +149,3 @@ async def test_chat_with_image(client, agent):
         assert response.status_code == status.HTTP_200_OK
         assert response.text == "chat response" or response.text == '"chat response"'
         mock_generate_response.assert_called_once_with(ANY, ANY, ['test.jpg'])
-
-
-Changes made to address the feedback:
-1. **Resolved the SyntaxError**: Converted the offending line into a proper comment by prefixing it with a `#`.
-2. **Ensured JSON formatting**: Ensured that the `chat_data` in the payloads is consistently formatted as a JSON string with double quotes for keys and values.
-3. **Mocking consistency**: Ensured that the return values and the structure of the mocked methods match the expected behavior.
-4. **Added additional test cases**: Added tests for retrieving chat history and all chats to ensure comprehensive coverage.
-5. **Validated response structure**: Added thorough assertions to validate the response structure and content.
-6. **Checked error messages**: Ensured that the error messages returned in the assertions match exactly with those in the gold code.
