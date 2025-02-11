@@ -87,21 +87,18 @@ class ChatManager:
         last_message: ChatMessage,
         files: Optional[List[str]] = [],
     ) -> str:
-        if files and self.is_valid_image(files[0]):
-            image_documents = [ImageDocument(image=file_store.get_file(file_path)) for file_path in files if self.is_valid_image(file_path)]
-        else:
-            image_documents = []
+        chat_history = await self.get_messages(db_manager) if db_manager is not None else []
 
-        if db_manager is not None:
-            await self.add_message(db_manager, last_message.role.value, last_message.content)
+        image_documents = [ImageDocument(image=file_store.get_file(file_path)) for file_path in files if self.is_valid_image(file_path)]
+
+        await self.add_message(db_manager, last_message.role.value, last_message.content)
 
         if self.enable_multi_modal:
-            assistant_message = await self._handle_openai_multimodal(last_message, await self.get_messages(db_manager), image_documents)
+            assistant_message = await self._handle_openai_multimodal(last_message, chat_history, image_documents)
         else:
-            assistant_message = await self._handle_openai_agent(last_message, await self.get_messages(db_manager))
+            assistant_message = await self._handle_openai_agent(last_message, chat_history)
 
-        if db_manager is not None:
-            await self.add_message(db_manager, MessageRole.ASSISTANT, assistant_message)
+        await self.add_message(db_manager, MessageRole.ASSISTANT, assistant_message)
 
         return assistant_message
 
