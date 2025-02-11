@@ -1,5 +1,3 @@
-# Changes made to address the feedback:
-
 import json
 from io import BytesIO
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
