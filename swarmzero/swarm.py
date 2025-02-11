@@ -149,8 +149,8 @@ class Swarm:
         return chats
 
     def _format_tool_name(self, name: str) -> str:
-        tmp = name.replace(" ", "_").replace("-", "_").lower()
-        result = "".join(char if char not in "!@#$%^&*()[]{};:,./<>?\|`~-=_+" else "_" for char in tmp)
+        exclude = "!@#$%^&*()[]{};:,./<>?\|`~-=_+"
+        result = "".join(char if char not in exclude else "" for char in name.replace(" ", "_").replace("-", "_").lower())
 
         return result
 
