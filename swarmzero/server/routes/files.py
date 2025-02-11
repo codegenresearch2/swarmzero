@@ -34,16 +34,13 @@ file_store = FileStore(BASE_DIR)
 
 index_store = IndexStore.get_instance()
 USE_S3 = os.getenv("USE_S3", "false").lower() == "true"
-PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 
 
-async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: SDKContext, pinecone_api_key: str = None):
+async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: SDKContext):
+    pinecone_api_key = os.getenv("PINECONE_API_KEY")
     if pinecone_api_key is None:
-        if PINECONE_API_KEY is None:
-            logger.error("PINECONE_API_KEY environment variable is not set.")
-            raise ValueError("PINECONE_API_KEY environment variable is not set.")
-        else:
-            pinecone_api_key = PINECONE_API_KEY
+        logger.error("PINECONE_API_KEY environment variable is not set.")
+        raise ValueError("PINECONE_API_KEY environment variable is not set.")
 
     saved_files = []
     for file in files:
@@ -94,17 +91,14 @@ async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: S
             await file.close()
             logger.info(f"Closed file {file.filename}")
 
-    return saved_files
-
 
 def setup_files_routes(router: APIRouter, id: str, sdk_context: SDKContext):
     @router.post("/uploadfiles/")
     async def create_upload_files(files: List[UploadFile] = File(...)):
-        pinecone_api_key = os.getenv("PINECONE_API_KEY")
-        saved_files = await insert_files_to_index(files, id, sdk_context, pinecone_api_key)
+        await insert_files_to_index(files, id, sdk_context)
 
-        logger.info(f"Uploaded files: {saved_files}")
-        return {"filenames": saved_files}
+        logger.info(f"Uploaded files: {files}")
+        return {"filenames": [file.filename for file in files]}
 
     @router.get("/files/")
     async def list_files():
