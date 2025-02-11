@@ -13,7 +13,7 @@ from swarmzero.filestore import BASE_DIR, FileStore
 
 file_store = FileStore(BASE_DIR)
 
-ALLOWED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp'}
+ALLOWED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff'}
 
 class ChatManager:
 
