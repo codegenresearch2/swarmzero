@@ -15,6 +15,7 @@ from swarmzero.llms.llm import LLM
 from swarmzero.llms.utils import llm_from_config_without_agent, llm_from_wrapper
 from swarmzero.sdk_context import SDKContext
 from swarmzero.utils import tools_from_funcs
+from swarmzero.server.routes.files import insert_files_to_index  # Added import
 
 load_dotenv()
 
@@ -133,13 +134,13 @@ class Swarm:
         chat_manager = ChatManager(self.__swarm, user_id=user_id, session_id=session_id)
         last_message = ChatMessage(role=MessageRole.USER, content=prompt)
 
-        # Include logic to handle files
+        # Handle files
+        stored_files = []
         if files:
-            # Implement the logic to insert files into the index
-            pass
+            stored_files = await insert_files_to_index(files)  # Using the new import
 
         response = await inject_additional_attributes(
-            lambda: chat_manager.generate_response(db_manager, last_message, files), {"user_id": user_id}
+            lambda: chat_manager.generate_response(db_manager, last_message, stored_files), {"user_id": user_id}
         )
         return response
 
@@ -165,3 +166,6 @@ class Swarm:
         if not self.__utilities_loaded:
             await self.sdk_context.load_default_utility()
             self.__utilities_loaded = True
+
+
+This revised code snippet includes the necessary import for `insert_files_to_index` from `swarmzero.server.routes.files`, implements file handling in the `chat` method, and ensures consistent variable naming and comments for clarity.
