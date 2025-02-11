@@ -74,7 +74,7 @@ class Swarm:
             self.sdk_context.add_resource(self, resource_type="swarm")
             self._build_swarm()
         else:
-            raise ValueError("no agents provided in params or config file")
+            raise ValueError("No agents provided in params or config file")
 
     def _build_swarm(self):
         query_engine_tools = (
@@ -135,7 +135,7 @@ class Swarm:
         last_message = ChatMessage(role=MessageRole.USER, content=prompt)
 
         if files:
-            stored_files = await insert_files_to_index(files, self.sdk_context)  # Added sdk_context parameter
+            stored_files = await insert_files_to_index(files, self.sdk_context)
         else:
             stored_files = []
 
