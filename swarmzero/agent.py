@@ -208,7 +208,7 @@ class Agent:
         prompt: str,
         user_id="default_user",
         session_id="default_chat",
-        files: Optional[List[UploadFile]] = None,
+        files: List[UploadFile] = [],
     ):
         await self._ensure_utilities_loaded()
         db_manager = self.sdk_context.get_utility("db_manager")
@@ -217,13 +217,10 @@ class Agent:
         last_message = ChatMessage(role=MessageRole.USER, content=prompt)
 
         # Process files before generating a response
-        if files:
-            stored_files = await insert_files_to_index(files)
-            # Assuming insert_files_to_index returns a list of stored file details
-            # You may need to adjust this based on the actual return type of insert_files_to_index
+        stored_files = await insert_files_to_index(files)
 
         response = await inject_additional_attributes(
-            lambda: chat_manager.generate_response(db_manager, last_message, files), {"user_id": user_id}
+            lambda: chat_manager.generate_response(db_manager, last_message, stored_files), {"user_id": user_id}
         )
         return response
 
