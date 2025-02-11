@@ -149,9 +149,8 @@ class Swarm:
         return chats
 
     def _format_tool_name(self, name: str) -> str:
-        exclude = "!@#$%^&*()[]{};:,./<>?\|`~-=_+"
-        result = "".join(char if char not in exclude else "_" for char in name.replace(" ", "_").replace("-", "_").lower())
-
+        import string
+        result = "".join(char for char in name if char not in string.punctuation).replace(" ", "_").lower()
         return result
 
     async def _ensure_utilities_loaded(self):
