@@ -10,7 +10,7 @@ from typing import Callable, List, Optional
 
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from langtrace_python_sdk import inject_additional_attributes  # type: ignore   # noqa
 from llama_index.core.agent import AgentRunner  # noqa
@@ -203,7 +203,7 @@ class Agent:
         prompt: str,
         user_id: str = "default_user",
         session_id: str = "default_chat",
-        files: Optional[List[UploadFile]] = [],
+        files: Optional[List[str]] = [],
     ):
         await self._ensure_utilities_loaded()
         db_manager = self.sdk_context.get_utility("db_manager")
