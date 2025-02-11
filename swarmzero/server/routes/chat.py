@@ -78,22 +78,22 @@ def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
                 detail=f"Chat data is malformed: {e.json()}",
             )
 
-        stored_files = []
-        if files:
-            stored_files = await insert_files_to_index(files, id, sdk_context)
-
         llm_instance, enable_multi_modal = get_llm_instance(id, sdk_context)
-
         chat_manager = ChatManager(
             llm_instance, user_id=user_id, session_id=session_id, enable_multi_modal=enable_multi_modal
         )
         db_manager = DatabaseManager(db)
 
+        stored_files = []
+        if files:
+            stored_files = await insert_files_to_index(files, id, sdk_context)
+
         last_message, _ = await validate_chat_data(chat_data_parsed)
 
-        return await inject_additional_attributes(
+        response = await inject_additional_attributes(
             lambda: chat_manager.generate_response(db_manager, last_message, stored_files), {"user_id": user_id}
         )
+        return response
 
     @router.get("/chat_history", response_model=List[ChatHistorySchema])
     async def get_chat_history(
@@ -102,7 +102,6 @@ def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
         db: AsyncSession = Depends(get_db),
     ):
         llm_instance, enable_multi_modal = get_llm_instance(id, sdk_context)
-
         chat_manager = ChatManager(llm_instance, user_id=user_id, session_id=session_id)
         db_manager = DatabaseManager(db)
         chat_history = await chat_manager.get_messages(db_manager)
@@ -126,7 +125,6 @@ def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
     @router.get("/all_chats")
     async def get_all_chats(user_id: str = Query(...), db: AsyncSession = Depends(get_db)):
         llm_instance, enable_multi_modal = get_llm_instance(id, sdk_context)
-
         chat_manager = ChatManager(llm_instance, user_id=user_id, session_id="")
         db_manager = DatabaseManager(db)
         all_chats = await chat_manager.get_all_chats_for_user(db_manager)
