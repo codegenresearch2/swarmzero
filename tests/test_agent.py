@@ -9,7 +9,6 @@ from llama_index.core.llms import ChatMessage, MessageRole
 from swarmzero.agent import Agent
 from swarmzero.tools.retriever.base_retrieve import IndexStore
 
-
 @pytest.fixture
 def agent():
     with (
@@ -42,7 +41,6 @@ def agent():
         )
     return test_agent
 
-
 @pytest.mark.asyncio
 async def test_agent_initialization(agent):
     assert agent.name == "TestAgent"
@@ -54,19 +52,16 @@ async def test_agent_initialization(agent):
     assert agent.retrieval_tool == "basic"
     assert agent.load_index_file is False
 
-
 def test_server_setup(agent):
     with patch("swarmzero.agent.setup_routes") as mock_setup_routes:
         agent._Agent__setup_server()
         mock_setup_routes.assert_called_once()
-
 
 @pytest.mark.asyncio
 async def test_run_server(agent):
     with patch("uvicorn.Server.serve", new_callable=MagicMock) as mock_serve:
         await agent.run_server()
         mock_serve.assert_called_once()
-
 
 def test_signal_handler(agent):
     agent.shutdown_event = MagicMock()
@@ -75,20 +70,17 @@ def test_signal_handler(agent):
         agent._Agent__signal_handler(signal.SIGINT, None)
         mock_create_task.assert_called_once_with(agent.shutdown_procedures())
 
-
 def test_server_setup_exception(agent):
     with patch("swarmzero.agent.setup_routes") as mock_setup_routes:
         mock_setup_routes.side_effect = Exception("Failed to setup routes")
         with pytest.raises(Exception):
             agent._Agent__setup_server()
 
-
 def test_openai_agent_initialization_exception(agent):
     with patch("llama_index.agent.openai.OpenAIAgent.from_tools") as mock_from_tools:
         mock_from_tools.side_effect = Exception("Failed to initialize OpenAI agent")
         with pytest.raises(Exception):
             agent._Agent__setup()
-
 
 @pytest.mark.asyncio
 async def test_shutdown_procedures_exception(agent):
@@ -97,13 +89,11 @@ async def test_shutdown_procedures_exception(agent):
         with pytest.raises(Exception):
             await agent.shutdown_procedures()
 
-
 @pytest.mark.asyncio
 async def test_cleanup(agent):
     agent.db_session = MagicMock()
     await agent._Agent__cleanup()
     agent.db_session.close.assert_called_once()
-
 
 def test_recreate_agent(agent):
     """
@@ -141,7 +131,6 @@ def test_recreate_agent(agent):
     """
     pass
 
-
 def test_assign_agent(agent):
     with (
         patch("swarmzero.llms.openai.OpenAIMultiModalLLM") as mock_openai_multimodal,
@@ -172,7 +161,6 @@ def test_assign_agent(agent):
 
                 # expected_mock_class.reset_mock()
 
-
 @pytest.mark.asyncio
 async def test_chat_method(agent):
     """Test the chat method with different scenarios including default and custom parameters."""
@@ -201,7 +189,7 @@ async def test_chat_method(agent):
                 prompt=test_case["prompt"],
                 user_id=test_case["user_id"],
                 session_id=test_case["session_id"],
-                image_document_paths=test_case["image_paths"],
+                image_document_paths=test_case["image_paths"],  # Added image_document_paths parameter
             )
 
             assert response == f"Response {i + 1}"
@@ -219,7 +207,6 @@ async def test_chat_method(agent):
                 mock_db_manager, expected_message, test_case["image_paths"]
             )
 
-
 @pytest.mark.asyncio
 async def test_chat_method_error_handling(agent):
     """Test error handling in the chat method."""
@@ -234,7 +221,6 @@ async def test_chat_method_error_handling(agent):
             await agent.chat("Hello")
 
         assert str(exc_info.value) == "Test error"
-
 
 @pytest.mark.asyncio
 async def test_chat_history_method(agent):
