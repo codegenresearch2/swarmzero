@@ -182,11 +182,19 @@ async def test_get_all_chats_success(client):
     expected_all_chats = {
         "session1": [
             {"message": "Hello in session1", "role": "USER", "timestamp": "timestamp1"},
-            {"message": "Response in session1", "role": "ASSISTANT", "timestamp": "timestamp2"},
+            {
+                "message": "Response in session1",
+                "role": "ASSISTANT",
+                "timestamp": "timestamp2",
+            },
         ],
         "session2": [
             {"message": "Hello in session2", "role": "USER", "timestamp": "timestamp3"},
-            {"message": "Response in session2", "role": "ASSISTANT", "timestamp": "timestamp4"},
+            {
+                "message": "Response in session2",
+                "role": "ASSISTANT",
+                "timestamp": "timestamp4",
+            },
         ],
     }
 
