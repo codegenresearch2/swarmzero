@@ -89,7 +89,7 @@ def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
         )
         db_manager = DatabaseManager(db)
 
-        last_message, chat_history = await validate_chat_data(chat_data_parsed)
+        last_message, _ = await validate_chat_data(chat_data_parsed)
 
         async def generate_response():
             return await chat_manager.generate_response(db_manager, last_message, stored_files)
