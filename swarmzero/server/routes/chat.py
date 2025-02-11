@@ -86,6 +86,7 @@ def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
         chat_manager = ChatManager(
             llm_instance, user_id=user_id, session_id=session_id, enable_multi_modal=enable_multi_modal
         )
+        db_manager = DatabaseManager(db)
 
         stored_files = []
         if files:
