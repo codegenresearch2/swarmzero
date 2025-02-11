@@ -12,11 +12,13 @@ import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from langtrace_python_sdk import inject_additional_attributes  # type: ignore   # noqa
 from llama_index.core.agent import AgentRunner  # noqa
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.objects import ObjectIndex
 from llama_index.core.tools import QueryEngineTool, ToolMetadata
+from pydantic import BaseModel
 
 from swarmzero.chat import ChatManager
 from swarmzero.llms.claude import ClaudeLLM
@@ -205,7 +207,7 @@ class Agent:
         prompt: str,
         user_id="default_user",
         session_id="default_chat",
-        files: Optional[List[str]] = [],
+        files: Optional[List[UploadFile]] = [],
     ):
         await self._ensure_utilities_loaded()
         db_manager = self.sdk_context.get_utility("db_manager")
@@ -379,7 +381,7 @@ class Agent:
                 agent_class = ClaudeLLM
             elif "llama" in model:
                 agent_class = OllamaLLM
-            elif "mixtral" or "mistral" or "codestral" in model:
+            elif "mixtral" in model or "mistral" in model or "codestral" in model:
                 agent_class = MistralLLM
             else:
                 agent_class = OpenAILLM
