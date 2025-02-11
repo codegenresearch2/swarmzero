@@ -34,12 +34,16 @@ file_store = FileStore(BASE_DIR)
 
 index_store = IndexStore.get_instance()
 USE_S3 = os.getenv("USE_S3", "false").lower() == "true"
+PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 
 
-async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: SDKContext):
-    PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-    if not PINECONE_API_KEY:
-        raise ValueError("PINECONE_API_KEY environment variable is not set.")
+async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: SDKContext, pinecone_api_key: str = None):
+    if pinecone_api_key is None:
+        if PINECONE_API_KEY is None:
+            logger.error("PINECONE_API_KEY environment variable is not set.")
+            raise ValueError("PINECONE_API_KEY environment variable is not set.")
+        else:
+            pinecone_api_key = PINECONE_API_KEY
 
     saved_files = []
     for file in files:
@@ -72,7 +76,7 @@ async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: S
                 agent.recreate_agent()
                 index_store.save_to_file()
             else:
-                retriever = PineconeRetriever(api_key=PINECONE_API_KEY)
+                retriever = PineconeRetriever(api_key=pinecone_api_key)
                 index, file_names = retriever.create_serverless_index([file_path], None, name="BaseRetriever")
                 index_store.add_index("BaseRetriever", index, file_names)
                 logger.info("Inserting data to new serverless Pinecone index")
@@ -96,8 +100,8 @@ async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: S
 def setup_files_routes(router: APIRouter, id: str, sdk_context: SDKContext):
     @router.post("/uploadfiles/")
     async def create_upload_files(files: List[UploadFile] = File(...)):
-
-        saved_files = await insert_files_to_index(files, id, sdk_context)
+        pinecone_api_key = os.getenv("PINECONE_API_KEY")
+        saved_files = await insert_files_to_index(files, id, sdk_context, pinecone_api_key)
 
         logger.info(f"Uploaded files: {saved_files}")
         return {"filenames": saved_files}
