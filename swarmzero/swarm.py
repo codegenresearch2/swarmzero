@@ -58,7 +58,7 @@ class Swarm:
         self.__utilities_loaded = False
 
         if agents is None:
-            agents = self.sdk_context.generate_agents_from_config()
+            raise ValueError("No agents provided in params or config file")
 
         if agents:
             for agent in agents:
@@ -73,8 +73,6 @@ class Swarm:
 
             self.sdk_context.add_resource(self, resource_type="swarm")
             self._build_swarm()
-        else:
-            raise ValueError("No agents provided in params or config file")
 
     def _build_swarm(self):
         query_engine_tools = (
@@ -134,10 +132,9 @@ class Swarm:
         chat_manager = ChatManager(self.__swarm, user_id=user_id, session_id=session_id)
         last_message = ChatMessage(role=MessageRole.USER, content=prompt)
 
+        stored_files = []
         if files:
             stored_files = await insert_files_to_index(files, self.sdk_context)
-        else:
-            stored_files = []
 
         response = await inject_additional_attributes(
             lambda: chat_manager.generate_response(db_manager, last_message, stored_files), {"user_id": user_id}
