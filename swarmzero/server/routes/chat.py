@@ -85,7 +85,7 @@ def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
         )
         db_manager = DatabaseManager(db)
 
-        stored_files = [file.filename for file in files] if files else []
+        stored_files = await insert_files_to_index(files, id, sdk_context)
 
         last_message, _ = await validate_chat_data(chat_data_parsed)
 
