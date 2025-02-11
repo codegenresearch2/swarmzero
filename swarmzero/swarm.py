@@ -139,7 +139,7 @@ class Swarm:
 
         stored_files = []
         if files and len(files) > 0:
-            stored_files = await insert_files_to_index(files)
+            stored_files = await insert_files_to_index(files, self.id, self.sdk_context)
 
         response = await inject_additional_attributes(
             lambda: chat_manager.generate_response(db_manager, last_message, stored_files), {"user_id": user_id}
@@ -157,8 +157,8 @@ class Swarm:
 
     def _format_tool_name(self, name: str) -> str:
         tmp = name.replace(" ", "_").replace("-", "_").lower()
-        exclude = set(string.punctuation).difference(["_"])
-        translation_table = str.maketrans("", "", ''.join(chr(i) for i in exclude))
+        exclude = string.punctuation.replace("_", "")
+        translation_table = str.maketrans("", "", exclude)
         result = tmp.translate(translation_table)
 
         return result
