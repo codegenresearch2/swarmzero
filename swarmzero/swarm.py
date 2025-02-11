@@ -137,15 +137,13 @@ class Swarm:
         chat_manager = ChatManager(self.__swarm, user_id=user_id, session_id=session_id)
         last_message = ChatMessage(role=MessageRole.USER, content=prompt)
 
+        stored_files = []
         if files and len(files) > 0:
             stored_files = await insert_files_to_index(files)
-            response = await inject_additional_attributes(
-                lambda: chat_manager.generate_response(db_manager, last_message, stored_files), {"user_id": user_id}
-            )
-        else:
-            response = await inject_additional_attributes(
-                lambda: chat_manager.generate_response(db_manager, last_message), {"user_id": user_id}
-            )
+
+        response = await inject_additional_attributes(
+            lambda: chat_manager.generate_response(db_manager, last_message, stored_files), {"user_id": user_id}
+        )
         return response
 
     async def chat_history(self, user_id="default_user", session_id="default_chat") -> dict[str, list]:
@@ -159,8 +157,8 @@ class Swarm:
 
     def _format_tool_name(self, name: str) -> str:
         tmp = name.replace(" ", "_").replace("-", "_").lower()
-        exclude = string.punctuation
-        translation_table = str.maketrans("", "", exclude)
+        exclude = set(string.punctuation).difference(["_"])
+        translation_table = str.maketrans("", "", ''.join(chr(i) for i in exclude))
         result = tmp.translate(translation_table)
 
         return result
