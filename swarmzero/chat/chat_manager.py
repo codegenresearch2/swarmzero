@@ -16,12 +16,12 @@ file_store = FileStore(BASE_DIR)
 class ChatManager:
 
     def __init__(self, llm: AgentRunner, user_id: str, session_id: str, enable_multi_modal: bool = False):
+        self.allowed_image_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff'}
         self.llm = llm
         self.user_id = user_id
         self.session_id = session_id
-        self.enable_multi_modal = enable_multi_modal
-        self.allowed_image_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff'}
         self.chat_store_key = f"{user_id}_{session_id}"
+        self.enable_multi_modal = enable_multi_modal
 
     def is_valid_image(self, file_path: str) -> bool:
         return Path(file_path).suffix.lower() in self.allowed_image_extensions
@@ -87,27 +87,21 @@ class ChatManager:
         last_message: ChatMessage,
         files: Optional[List[str]] = [],
     ) -> str:
-        chat_history = []
+        if files and self.is_valid_image(files[0]):
+            image_documents = [ImageDocument(image=file_store.get_file(file_path)) for file_path in files if self.is_valid_image(file_path)]
+        else:
+            image_documents = []
 
         if db_manager is not None:
-            try:
-                chat_history = await self.get_messages(db_manager)
-                await self.add_message(db_manager, last_message.role.value, last_message.content)
-            except Exception as e:
-                raise ValueError(f"Failed to generate response: {e}")
-
-        image_documents = [ImageDocument(image=file_store.get_file(file_path)) for file_path in files if self.is_valid_image(file_path)]
+            await self.add_message(db_manager, last_message.role.value, last_message.content)
 
         if self.enable_multi_modal:
-            assistant_message = await self._handle_openai_multimodal(last_message, chat_history, image_documents)
+            assistant_message = await self._handle_openai_multimodal(last_message, await self.get_messages(db_manager), image_documents)
         else:
-            assistant_message = await self._handle_openai_agent(last_message, chat_history)
+            assistant_message = await self._handle_openai_agent(last_message, await self.get_messages(db_manager))
 
         if db_manager is not None:
-            try:
-                await self.add_message(db_manager, MessageRole.ASSISTANT, assistant_message)
-            except Exception as e:
-                raise ValueError(f"Failed to add assistant message: {e}")
+            await self.add_message(db_manager, MessageRole.ASSISTANT, assistant_message)
 
         return assistant_message
 
