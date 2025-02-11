@@ -1,6 +1,5 @@
 import os
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, List, Optional
 
 from llama_index.core.agent.runner.base import AgentRunner
@@ -17,15 +16,11 @@ file_store = FileStore(BASE_DIR)
 class ChatManager:
 
     def __init__(self, llm: AgentRunner, user_id: str, session_id: str, enable_multi_modal: bool = False):
-        self.allowed_image_extensions = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff"}
         self.llm = llm
         self.user_id = user_id
         self.session_id = session_id
         self.chat_store_key = f"{user_id}_{session_id}"
         self.enable_multi_modal = enable_multi_modal
-
-    def is_valid_image(self, file_path: str) -> bool:
-        return Path(file_path).suffix.lower() in self.allowed_image_extensions
 
     async def add_message(self, db_manager: DatabaseManager, role: str, content: Any | None):
         data = {
@@ -84,7 +79,7 @@ class ChatManager:
         self,
         db_manager: Optional[DatabaseManager],
         last_message: ChatMessage,
-        files: Optional[List[str]] = [],
+        image_document_paths: Optional[List[str]] = [],
     ) -> str:
         chat_history = []
 
@@ -94,15 +89,10 @@ class ChatManager:
 
         if self.enable_multi_modal:
             image_documents = (
-                [
-                    ImageDocument(image=file_store.get_file(image_path))
-                    for image_path in files
-                    if self.is_valid_image(image_path)
-                ]
-                if files is not None and len(files) > 0
+                [ImageDocument(image=file_store.get_file(image_path)) for image_path in image_document_paths]
+                if image_document_paths is not None and len(image_document_paths) > 0
                 else []
             )
-
             assistant_message = await self._handle_openai_multimodal(last_message, chat_history, image_documents)
         else:
             assistant_message = await self._handle_openai_agent(last_message, chat_history)
