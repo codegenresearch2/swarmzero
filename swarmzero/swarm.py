@@ -1,28 +1,25 @@
-import os
-import string
-import uuid
-from typing import Any, Callable, Dict, List, Optional
-
-from dotenv import load_dotenv
-from langtrace_python_sdk import inject_additional_attributes
+from fastapi import UploadFile
+from typing import List
 from llama_index.core.agent import AgentRunner, ReActAgent
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.tools import QueryEngineTool, ToolMetadata
-
 from swarmzero.agent import Agent
 from swarmzero.chat import ChatManager
 from swarmzero.llms.llm import LLM
 from swarmzero.llms.utils import llm_from_config_without_agent, llm_from_wrapper
 from swarmzero.sdk_context import SDKContext
 from swarmzero.utils import tools_from_funcs
+import os
+import string
+import uuid
+from dotenv import load_dotenv
+from langtrace_python_sdk import inject_additional_attributes
 
 load_dotenv()
-
 
 class AgentMap(Dict[str, Dict[str, Any]]):
     def __init__(self):
         super().__init__()
-
 
 class Swarm:
     id: str
@@ -127,7 +124,7 @@ class Swarm:
         prompt: str,
         user_id="default_user",
         session_id="default_chat",
-        image_document_paths: Optional[List[str]] = [],
+        stored_files: Optional[List[UploadFile]] = [],
     ):
         await self._ensure_utilities_loaded()
         db_manager = self.sdk_context.get_utility("db_manager")
@@ -136,7 +133,7 @@ class Swarm:
         last_message = ChatMessage(role=MessageRole.USER, content=prompt)
 
         response = await inject_additional_attributes(
-            lambda: chat_manager.generate_response(db_manager, last_message, image_document_paths), {"user_id": user_id}
+            lambda: chat_manager.generate_response(db_manager, last_message, stored_files), {"user_id": user_id}
         )
         return response
 
