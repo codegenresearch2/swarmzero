@@ -205,7 +205,7 @@ class Agent:
         prompt: str,
         user_id="default_user",
         session_id="default_chat",
-        image_document_paths: Optional[List[str]] = [],
+        files: Optional[List[str]] = [],
     ):
         await self._ensure_utilities_loaded()
         db_manager = self.sdk_context.get_utility("db_manager")
@@ -214,7 +214,7 @@ class Agent:
         last_message = ChatMessage(role=MessageRole.USER, content=prompt)
 
         response = await inject_additional_attributes(
-            lambda: chat_manager.generate_response(db_manager, last_message, image_document_paths), {"user_id": user_id}
+            lambda: chat_manager.generate_response(db_manager, last_message, files), {"user_id": user_id}
         )
         return response
 
