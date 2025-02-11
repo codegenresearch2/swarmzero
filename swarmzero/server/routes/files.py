@@ -39,7 +39,7 @@ USE_S3 = os.getenv("USE_S3", "false").lower() == "true"
 async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: SDKContext):
     pinecone_api_key = os.getenv("PINECONE_API_KEY")
     if not pinecone_api_key:
-        logger.error("PINECONE_API_KEY environment variable is not set.")
+        logger.warning("PINECONE_API_KEY environment variable is not set.")
         raise HTTPException(status_code=400, detail="PINECONE_API_KEY environment variable is required.")
 
     saved_files = []
@@ -57,7 +57,7 @@ async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: S
         try:
             agent = sdk_context.get_resource(id)
             filename = await file_store.save_file(file)
-            file_path = f"{BASE_DIR}/{filename}" if not USE_S3 else filename
+            file_path = "{BASE_DIR}/{filename}".format(BASE_DIR=BASE_DIR, filename=filename) if not USE_S3 else filename
             saved_files.append(file_path)
 
             if USE_S3:
