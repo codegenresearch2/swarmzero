@@ -74,7 +74,7 @@ class Swarm:
             self.sdk_context.add_resource(self, resource_type="swarm")
             self._build_swarm()
         else:
-            raise ValueError("No agents provided in params or config file")
+            raise ValueError("no agents provided in params or config file")
 
     def _build_swarm(self):
         query_engine_tools = (
@@ -126,8 +126,10 @@ class Swarm:
         prompt: str,
         user_id: str = "default_user",
         session_id: str = "default_chat",
-        files: Optional[List[str]] = [],
+        files: Optional[List[str]] = None,
     ):
+        if files is None:
+            files = []
         await self._ensure_utilities_loaded()
         db_manager = self.sdk_context.get_utility("db_manager")
 
@@ -150,7 +152,7 @@ class Swarm:
 
     def _format_tool_name(self, name: str) -> str:
         import string
-        result = "".join(char for char in name if char not in string.punctuation).replace(" ", "_").lower()
+        result = "".join(char for char in name if char not in string.punctuation).replace(" ", "_").replace("-", "_").lower()
         return result
 
     async def _ensure_utilities_loaded(self):
