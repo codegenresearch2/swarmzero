@@ -91,14 +91,16 @@ async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: S
             await file.close()
             logger.info(f"Closed file {file.filename}")
 
+    return saved_files
+
 
 def setup_files_routes(router: APIRouter, id: str, sdk_context: SDKContext):
     @router.post("/uploadfiles/")
     async def create_upload_files(files: List[UploadFile] = File(...)):
-        await insert_files_to_index(files, id, sdk_context)
+        saved_files = await insert_files_to_index(files, id, sdk_context)
 
-        logger.info(f"Uploaded files: {files}")
-        return {"filenames": [file.filename for file in files]}
+        logger.info(f"Uploaded files: {saved_files}")
+        return {"filenames": saved_files}
 
     @router.get("/files/")
     async def list_files():
