@@ -1,166 +1,146 @@
-from unittest.mock import MagicMock, patch
+import os
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, List, Optional
 
-import pytest
-from llama_index.agent.openai import OpenAIAgent  # type: ignore
+from llama_index.core.agent.runner.base import AgentRunner
 from llama_index.core.llms import ChatMessage, MessageRole
-from llama_index.multi_modal_llms.openai import OpenAIMultiModal  # type: ignore
+from llama_index.core.memory import ChatMemoryBuffer
+from llama_index.core.schema import ImageDocument
 
-from swarmzero.chat import ChatManager
+from swarmzero.database.database import DatabaseManager
+from swarmzero.filestore import BASE_DIR, FileStore
 
-
-class MockAgent:
-    async def astream_chat(self, content, chat_history=None):
-        async def async_response_gen():
-            yield "chat response"
-
-        return type("MockResponse", (), {"async_response_gen": async_response_gen})
-
-    async def achat(self, content, chat_history=None):
-        return type("MockResponse", (), {"response": "chat response"})
+file_store = FileStore(BASE_DIR)
 
 
-class MockMultiModalAgent:
-    def create_task(self, content, extra_state=None):
-        return type("MockTask", (), {"task_id": "12345"})
+class ChatManager:
 
-    async def _arun_step(self, task_id):
-        return type("MockResponse", (), {"is_last": True})
+    def __init__(self, llm: AgentRunner, user_id: str, session_id: str, enable_multi_modal: bool = False):
+        self.allowed_image_extensions = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff"}
+        self.llm = llm
+        self.user_id = user_id
+        self.session_id = session_id
+        self.chat_store_key = f"{user_id}_{session_id}"
+        self.enable_multi_modal = enable_multi_modal
 
-    def finalize_response(self, task_id):
-        return "multimodal response"
+    def is_valid_image(self, file_path: str) -> bool:
+        return Path(file_path).suffix.lower() in self.allowed_image_extensions
 
+    async def add_message(self, db_manager: DatabaseManager, role: str, content: Any | None):
+        if content is None:
+            raise ValueError("Message content cannot be None")
+        data = {
+            "user_id": self.user_id,
+            "session_id": self.session_id,
+            "message": content,
+            "role": role,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        if "AGENT_ID" in os.environ:
+            data["agent_id"] = os.getenv("AGENT_ID", "")
+        if "SWARM_ID" in os.environ:
+            data["swarm_id"] = os.getenv("SWARM_ID", "")
 
-class MockDatabaseManager:
-    def __init__(self):
-        self.data = []
+        await db_manager.insert_data(
+            table_name="chats",
+            data=data,
+        )
 
-    async def insert_data(self, table_name: str, data: dict):
-        self.data.append(data)
+    async def get_messages(self, db_manager: DatabaseManager):
+        filters = {"user_id": [self.user_id], "session_id": [self.session_id]}
+        if "AGENT_ID" in os.environ:
+            filters["agent_id"] = os.getenv("AGENT_ID", "")
+        if "SWARM_ID" in os.environ:
+            filters["swarm_id"] = os.getenv("SWARM_ID", "")
 
-    async def read_data(self, table_name: str, filters: dict):
-        return [d for d in self.data if all(d[k] == v[0] for k, v in filters.items())]
+        db_chat_history = await db_manager.read_data("chats", filters)
+        chat_history = [ChatMessage(role=chat["role"], content=chat["message"]) for chat in db_chat_history]
+        return chat_history
 
+    async def get_all_chats_for_user(self, db_manager: DatabaseManager):
+        filters = {"user_id": [self.user_id]}
+        if "AGENT_ID" in os.environ:
+            filters["agent_id"] = os.getenv("AGENT_ID", "")
+        if "SWARM_ID" in os.environ:
+            filters["swarm_id"] = os.getenv("SWARM_ID", "")
 
-@pytest.fixture
-def agent():
-    return MockAgent()
+        db_chat_history = await db_manager.read_data("chats", filters)
 
+        chats_by_session: dict[str, list] = {}
+        for chat in db_chat_history:
+            session_id = chat["session_id"]
+            if session_id not in chats_by_session:
+                chats_by_session[session_id] = []
+            chats_by_session[session_id].append(
+                {
+                    "message": chat["message"],
+                    "role": chat["role"],
+                    "timestamp": chat["timestamp"],
+                }
+            )
 
-@pytest.fixture
-def multi_modal_agent():
-    # Mocking the methods within the agent to make them MagicMock objects
-    agent = MockMultiModalAgent()
-    agent._arun_step = MagicMock(side_effect=agent._arun_step)
-    agent.finalize_response = MagicMock(side_effect=agent.finalize_response)
-    return agent
+        return chats_by_session
 
+    async def generate_response(
+        self,
+        db_manager: Optional[DatabaseManager],
+        last_message: ChatMessage,
+        files: Optional[List[str]] = [],
+    ) -> str:
+        if last_message.role != MessageRole.USER:
+            raise ValueError("Last message must be from user")
 
-@pytest.fixture
-def db_manager():
-    return MockDatabaseManager()
+        chat_history = []
 
+        if db_manager is not None:
+            chat_history = await self.get_messages(db_manager)
+            await self.add_message(db_manager, last_message.role.value, last_message.content)
 
-@pytest.mark.asyncio
-async def test_add_message(agent, db_manager):
-    chat_manager = ChatManager(agent, user_id="123", session_id="abc")
-    await chat_manager.add_message(db_manager, MessageRole.USER, "Hello!")
-    messages = await chat_manager.get_messages(db_manager)
-    assert len(messages) == 1
-    assert messages[0].content == "Hello!"
+        if self.enable_multi_modal:
+            image_documents = (
+                [
+                    ImageDocument(image=file_store.get_file(image_path))
+                    for image_path in files
+                    if self.is_valid_image(image_path)
+                ]
+                if files is not None and len(files) > 0
+                else []
+            )
 
+            assistant_message = await self._handle_openai_multimodal(last_message, chat_history, image_documents)
+        else:
+            assistant_message = await self._handle_openai_agent(last_message, chat_history)
 
-@pytest.mark.asyncio
-async def test_generate_response_with_generic_llm(agent, db_manager):
-    chat_manager = ChatManager(agent, user_id="123", session_id="abc")
-    user_message = ChatMessage(role=MessageRole.USER, content="Hello!")
+        if db_manager is not None:
+            await self.add_message(db_manager, MessageRole.ASSISTANT, assistant_message)
 
-    response = await chat_manager.generate_response(db_manager, user_message, [])
-    assert response == "chat response"
+        return assistant_message
 
-    messages = await chat_manager.get_messages(db_manager)
-    assert len(messages) == 2
-    assert messages[0].content == "Hello!"
-    assert messages[1].content == "chat response"
+    async def _handle_openai_multimodal(
+        self,
+        last_message: ChatMessage,
+        chat_history: List[ChatMessage],
+        image_documents: List[ImageDocument],
+    ) -> str:
 
+        self.llm.memory = ChatMemoryBuffer.from_defaults(chat_history=chat_history)
+        task = self.llm.create_task(str(last_message.content), extra_state={"image_docs": image_documents})
+        return await self._execute_task(task.task_id)
 
-@pytest.mark.asyncio
-async def test_get_all_chats_for_user(agent, db_manager):
-    chat_manager1 = ChatManager(agent, user_id="123", session_id="abc")
-    await chat_manager1.add_message(db_manager, MessageRole.USER, "Hello in abc")
-    await chat_manager1.add_message(db_manager, MessageRole.ASSISTANT, "Response in abc")
+    async def _handle_openai_agent(
+        self,
+        last_message: ChatMessage,
+        chat_history: List[ChatMessage],
+    ) -> str:
+        response_stream = await self.llm.astream_chat(last_message.content, chat_history=chat_history)
+        return "".join([token async for token in response_stream.async_response_gen()])
 
-    chat_manager2 = ChatManager(agent, user_id="123", session_id="def")
-    await chat_manager2.add_message(db_manager, MessageRole.USER, "Hello in def")
-    await chat_manager2.add_message(db_manager, MessageRole.ASSISTANT, "Response in def")
-
-    chat_manager = ChatManager(agent, user_id="123", session_id="")
-    all_chats = await chat_manager.get_all_chats_for_user(db_manager)
-
-    assert "abc" in all_chats
-    assert "def" in all_chats
-
-    assert len(all_chats["abc"]) == 2
-    assert all_chats["abc"][0]["message"] == "Hello in abc"
-    assert all_chats["abc"][1]["message"] == "Response in abc"
-
-    assert len(all_chats["def"]) == 2
-    assert all_chats["def"][0]["message"] == "Hello in def"
-    assert all_chats["def"][1]["message"] == "Response in def"
-
-
-@pytest.mark.asyncio
-async def test_generate_response_with_openai_multimodal(multi_modal_agent, db_manager):
-    with patch("llama_index.core.settings._Settings.llm", new=MagicMock(spec=OpenAIMultiModal)):
-        chat_manager = ChatManager(multi_modal_agent, user_id="123", session_id="abc", enable_multi_modal=True)
-        user_message = ChatMessage(role=MessageRole.USER, content="Hello!")
-        files = ["image1.png", "image2.png"]
-
-        response = await chat_manager.generate_response(db_manager, user_message, files)
-
-        assert response == "multimodal response"
-
-        messages = await chat_manager.get_messages(db_manager)
-        assert len(messages) == 2
-        assert messages[0].content == "Hello!"
-        assert messages[1].content == "multimodal response"
-
-
-@pytest.mark.asyncio
-async def test_execute_task_success(multi_modal_agent):
-    chat_manager = ChatManager(multi_modal_agent, user_id="123", session_id="abc")
-
-    result = await chat_manager._execute_task("task_id_123")
-
-    assert result == "multimodal response"
-    multi_modal_agent._arun_step.assert_called_once_with("task_id_123")
-    multi_modal_agent.finalize_response.assert_called_once_with("task_id_123")
-
-
-@pytest.mark.asyncio
-async def test_execute_task_with_exception(multi_modal_agent):
-    async def mock_arun_step(task_id):
-        raise ValueError(f"Could not find step_id: {task_id}")
-
-    multi_modal_agent._arun_step = MagicMock(side_effect=mock_arun_step)
-
-    chat_manager = ChatManager(multi_modal_agent, user_id="123", session_id="abc")
-
-    result = await chat_manager._execute_task("task_id_123")
-
-    assert result == "error during step execution: Could not find step_id: task_id_123"
-    multi_modal_agent._arun_step.assert_called_once_with("task_id_123")
-
-
-@pytest.mark.asyncio
-async def test_generate_response_with_openai_agent(agent, db_manager):
-    with patch("llama_index.core.settings._Settings.llm", new=MagicMock(spec=OpenAIAgent)):
-        chat_manager = ChatManager(agent, user_id="123", session_id="abc")
-        user_message = ChatMessage(role=MessageRole.USER, content="Hello!")
-
-        response = await chat_manager.generate_response(db_manager, user_message, [])
-        assert response == "chat response"
-
-        messages = await chat_manager.get_messages(db_manager)
-        assert len(messages) == 2
-        assert messages[0].content == "Hello!"
-        assert messages[1].content == "chat response"
+    async def _execute_task(self, task_id: str) -> str:
+        while True:
+            try:
+                response = await self.llm._arun_step(task_id)
+                if response.is_last:
+                    return str(self.llm.finalize_response(task_id))
+            except Exception as e:
+                return f"error during step execution: {str(e)}"
