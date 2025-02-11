@@ -52,7 +52,7 @@ def get_llm_instance(id, sdk_context: SDKContext):
 
 def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
     async def validate_chat_data(chat_data):
-        if len(chat_data.messages) == 0:
+        if not chat_data.messages:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No messages provided",
@@ -63,7 +63,7 @@ def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Last message must be from user",
             )
-        return last_message, [ChatMessage(role=m.role, content=m.content) for m in chat_data.messages]
+        return last_message, chat_data.messages
 
     @router.post("/chat")
     async def chat(
