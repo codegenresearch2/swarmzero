@@ -34,13 +34,13 @@ file_store = FileStore(BASE_DIR)
 
 index_store = IndexStore.get_instance()
 USE_S3 = os.getenv("USE_S3", "false").lower() == "true"
+PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
+
+if not PINECONE_API_KEY:
+    raise ValueError("PINECONE_API_KEY environment variable is not set.")
 
 
 async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: SDKContext):
-    PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-    if not PINECONE_API_KEY:
-        raise ValueError("PINECONE_API_KEY environment variable is not set.")
-
     saved_files = []
     for file in files:
         if not file.content_type:
