@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import List
 
 from fastapi import (
@@ -83,7 +82,10 @@ def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
                 detail=f"Chat data is malformed: {e.json()}",
             )
 
-        stored_files = await insert_files_to_index(files, id, sdk_context)
+        stored_files = []
+        if files:
+            stored_files = await insert_files_to_index(files, id, sdk_context)
+
         llm_instance, enable_multi_modal = get_llm_instance(id, sdk_context)
 
         chat_manager = ChatManager(
@@ -93,9 +95,10 @@ def setup_chat_routes(router: APIRouter, id, sdk_context: SDKContext):
 
         last_message, _ = await validate_chat_data(chat_data_parsed)
 
-        return await inject_additional_attributes(
+        response = await inject_additional_attributes(
             lambda: chat_manager.generate_response(db_manager, last_message, stored_files), {"user_id": user_id}
         )
+        return response
 
     @router.get("/chat_history", response_model=List[ChatHistorySchema])
     async def get_chat_history(
