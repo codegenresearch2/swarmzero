@@ -8,6 +8,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from swarmzero.filestore import BASE_DIR, FileStore
 from swarmzero.sdk_context import SDKContext
 from swarmzero.tools.retriever.base_retrieve import IndexStore, RetrieverBase
+from swarmzero.tools.retriever.pinecone_retrieve import PineconeRetriever
 
 load_dotenv()
 
@@ -71,9 +72,9 @@ async def insert_files_to_index(files: List[UploadFile], id: str, sdk_context: S
                 index_store.save_to_file()
 
             else:
-                retriever = RetrieverBase()
-                index, file_names = retriever.create_basic_index([file_path])
-                index_store.add_index(retriever.name, index, file_names)
+                retriever = PineconeRetriever()
+                index, file_names = retriever.create_serverless_index([file_path], None, name="BaseRetriever")
+                index_store.add_index("BaseRetriever", index, file_names)
                 logger.info("Inserting data to new basic index")
                 logger.info(f"Index: {index_store.list_indexes()}")
                 agent.recreate_agent()
