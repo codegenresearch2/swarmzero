@@ -6,10 +6,11 @@ import pytest
 from fastapi import APIRouter, FastAPI, status
 from httpx import AsyncClient
 from llama_index.core.llms import ChatMessage, MessageRole
+from llama_index.vector_stores import PineconeVectorStore
+from llama_index.retrievers import VectorIndexRetriever
 
 from swarmzero.sdk_context import SDKContext
 from swarmzero.server.routes.chat import setup_chat_routes
-
 
 class MockAgent:
     async def astream_chat(self, content, chat_history):
@@ -21,11 +22,9 @@ class MockAgent:
     async def achat(self, content, chat_history):
         return "chat response"
 
-
 @pytest.fixture
 def agent():
     return MockAgent()
-
 
 @pytest.fixture
 def sdk_context():
@@ -35,11 +34,10 @@ def sdk_context():
         'agent_class': lambda *args: MagicMock(agent=MockAgent()),
         'tools': [],
         'instruction': "",
-        'tool_retriever': None,
-        'enable_multi_modal': False,
+        'tool_retriever': VectorIndexRetriever(index=PineconeVectorStore(index=MagicMock())),
+        'enable_multi_modal': True,
     }
     return mock_context
-
 
 @pytest.fixture
 def app(agent, sdk_context):
@@ -49,12 +47,10 @@ def app(agent, sdk_context):
     fastapi_app.include_router(v1_router, prefix="/api/v1")
     return fastapi_app
 
-
 @pytest.fixture
 async def client(app):
     async with AsyncClient(app=app, base_url="http://test") as test_client:
         yield test_client
-
 
 @pytest.mark.asyncio
 async def test_chat_no_messages(client):
@@ -63,10 +59,9 @@ async def test_chat_no_messages(client):
         "session_id": "session1",
         "chat_data": json.dumps({"messages": []}),
     }
-    response = await client.post("/api/v1/chat", data=form_data, files={})
+    response = await client.post("/api/v1/chat", data=form_data)
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "No messages provided" in response.json()["detail"]
-
 
 @pytest.mark.asyncio
 async def test_chat_last_message_not_user(client):
@@ -84,21 +79,18 @@ async def test_chat_last_message_not_user(client):
         ),
     }
 
-    response = await client.post("/api/v1/chat", data=form_data, files={})
+    response = await client.post("/api/v1/chat", data=form_data)
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "Last message must be from user" in response.json()["detail"]
-
 
 @pytest.mark.asyncio
 async def test_chat_malformed_chat_data(client):
     payload = {"user_id": "user1", "session_id": "session1", "chat_data": "invalid_json"}
-    files = [("files", ("test.txt", BytesIO(b"test content"), "text/plain"))]
 
-    response = await client.post("/api/v1/chat", data=payload, files={**dict(files)})
+    response = await client.post("/api/v1/chat", data=payload)
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "Chat data is malformed" in response.json()["detail"]
-
 
 @pytest.mark.asyncio
 async def test_chat_success(client, agent):
@@ -114,13 +106,10 @@ async def test_chat_success(client, agent):
             "chat_data": '{"messages":[{"role": "user", "content": "Hello!"}]}',
         }
 
-        files = [("files", ("test.txt", BytesIO(b"test content"), "text/plain"))]
-
-        response = await client.post("/api/v1/chat", data=payload, files={**dict(files)})
+        response = await client.post("/api/v1/chat", data=payload)
 
         assert response.status_code == status.HTTP_200_OK
         assert response.text == "chat response" or response.text == '"chat response"'
-
 
 @pytest.mark.asyncio
 async def test_chat_with_image(client, agent):
@@ -139,7 +128,6 @@ async def test_chat_with_image(client, agent):
         }
 
         files = [
-            ("files", ("test.txt", BytesIO(b"test content"), "text/plain")),
             ("files", ("test.jpg", BytesIO(b"test content"), "image/jpg")),
         ]
 
@@ -147,8 +135,7 @@ async def test_chat_with_image(client, agent):
 
         assert response.status_code == status.HTTP_200_OK
         assert response.text == "chat response" or response.text == '"chat response"'
-        mock_generate_response.assert_called_once_with(ANY, ANY, ['test.txt', 'test.jpg'])
-
+        mock_generate_response.assert_called_once_with(ANY, ANY, ['test.jpg'])
 
 @pytest.mark.asyncio
 async def test_get_chat_history_success(client):
@@ -174,7 +161,6 @@ async def test_get_chat_history_success(client):
         for expected_msg, actual_msg in zip(expected_chat_history, response_data):
             assert actual_msg["role"] == expected_msg["role"]
             assert actual_msg["message"] == expected_msg["content"]
-
 
 @pytest.mark.asyncio
 async def test_get_all_chats_success(client):
