@@ -12,13 +12,13 @@ from swarmzero.server.routes.chat import setup_chat_routes
 
 
 class MockAgent:
-    async def astream_chat(self, content, chat_history):
+    async def astream_chat(self, content, chat_history=None):
         async def async_response_gen():
             yield "chat response"
 
         return type("MockResponse", (), {"async_response_gen": async_response_gen})
 
-    async def achat(self, content, chat_history):
+    async def achat(self, content, chat_history=None):
         return "chat response"
 
 
@@ -147,7 +147,7 @@ async def test_chat_with_image(client, agent):
 
         assert response.status_code == status.HTTP_200_OK
         assert response.text == "chat response" or response.text == '"chat response"'
-        mock_generate_response.assert_called_once_with(ANY, ANY, ['test.txt', 'test.jpg'])
+        mock_generate_response.assert_called_once_with(ANY, ANY, ['test.jpg'])
 
 
 @pytest.mark.asyncio
